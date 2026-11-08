@@ -1783,3 +1783,183 @@ minBtn.Activated:Connect(function()
 end)
 
 setStatus("✔ FlyHub PluginUI siap! Pilih template / elemen.", false)
+--[[ PART 6 — FLOATING OPEN/CLOSE BUTTON (tambahan akhir) ]]
+
+-- ═══════════════════════════════════════════════════════════════
+-- TOMBOL FLOATING untuk buka/tutup panel FlyHub
+-- Asset ID: 134445984487369
+-- ═══════════════════════════════════════════════════════════════
+
+local FLOAT_IMG_ID  = "134445984487369"
+local FLOAT_SIZE    = 56                  -- ukuran tombol (px)
+local FLOAT_START   = UDim2.new(0, 20, 0.5, -28)  -- posisi awal (kiri tengah)
+
+-- State
+local floatOpen = true   -- panel saat ini terbuka?
+local floatBtn  = nil
+
+-- Buat ImageButton di host (ScreenGui FlyHubPluginUI)
+floatBtn = mk("ImageButton", {
+	Name = "FlyHubToggleBtn",
+	Size = UDim2.fromOffset(FLOAT_SIZE, FLOAT_SIZE),
+	Position = FLOAT_START,
+	BackgroundColor3 = UI.panel,
+	BackgroundTransparency = 0.15,
+	BorderSizePixel = 0,
+	Image = "rbxassetid://" .. FLOAT_IMG_ID,
+	ImageColor3 = WHITE,
+	ScaleType = Enum.ScaleType.Fit,
+	AutoButtonColor = false,
+	ZIndex = 50,
+	Active = true,
+}, host)
+
+mk("UICorner", {CornerRadius = UDim.new(0.5, 0)}, floatBtn)
+local fbStroke = mk("UIStroke", {
+	Color = UI.accent,
+	Thickness = 2,
+	Transparency = 0.3,
+	ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+}, floatBtn)
+
+-- Glow ring (pulse)
+local fbGlow = mk("Frame", {
+	Size = UDim2.fromScale(1, 1),
+	Position = UDim2.fromScale(0, 0),
+	BackgroundTransparency = 1,
+	ZIndex = -1,
+}, floatBtn)
+mk("UICorner", {CornerRadius = UDim.new(0.5, 0)}, fbGlow)
+local fbGlowStroke = mk("UIStroke", {
+	Color = UI.accent2,
+	Thickness = 2,
+	Transparency = 0.6,
+}, fbGlow)
+
+-- Pulse animation via TweenService loop
+task.spawn(function()
+	while floatBtn.Parent do
+		TweenService:Create(fbGlowStroke, TweenInfo.new(1.2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+			Transparency = 0.1,
+			Thickness = 4,
+		}):Play()
+		task.wait(1.2)
+		TweenService:Create(fbGlowStroke, TweenInfo.new(1.2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+			Transparency = 0.7,
+			Thickness = 2,
+		}):Play()
+		task.wait(1.2)
+	end
+end)
+
+-- Hover scale
+local fbScale = mk("UIScale", {Name = "FBScale"}, floatBtn)
+floatBtn.MouseEnter:Connect(function()
+	TweenService:Create(fbScale, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Scale = 1.12}):Play()
+end)
+floatBtn.MouseLeave:Connect(function()
+	TweenService:Create(fbScale, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Scale = 1}):Play()
+end)
+floatBtn.MouseButton1Down:Connect(function()
+	TweenService:Create(fbScale, TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Scale = 0.9}):Play()
+end)
+floatBtn.MouseButton1Up:Connect(function()
+	TweenService:Create(fbScale, TweenInfo.new(0.12, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = 1.12}):Play()
+end)
+
+-- Fungsi buka/tutup panel utama (dengan animasi)
+local function setPanelOpen(open)
+	if open == floatOpen and mainPanel.Visible == open then return end
+	floatOpen = open
+	local panelScale = mainPanel:FindFirstChild("PanelScale")
+
+	if open then
+		mainPanel.Visible = true
+		mainPanel.Position = UDim2.new(1, -450, 0, 60)
+		if panelScale then
+			panelScale.Scale = 0.85
+			TweenService:Create(panelScale, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = 1}):Play()
+		end
+		-- feedback: tombol mengecil sebentar
+		TweenService:Create(fbScale, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Scale = 1.25}):Play()
+		task.delay(0.12, function()
+			TweenService:Create(fbScale, TweenInfo.new(0.15, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = 1}):Play()
+		end)
+	else
+		if panelScale then
+			TweenService:Create(panelScale, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Scale = 0.85}):Play()
+		end
+		task.delay(0.18, function()
+			if not floatOpen then mainPanel.Visible = false end
+		end)
+	end
+end
+
+-- Klik tombol = toggle open/close
+floatBtn.Activated:Connect(function()
+	setPanelOpen(not floatOpen)
+end)
+
+-- Sinkron dengan closeBtn: kalau user tutup via header, panel hide saja
+-- (tidak destroy) supaya bisa dibuka lagi lewat tombol floating
+-- NOTE: closeBtn dari Part 5 sudah pakai host:Destroy(), jadi kita override
+-- dengan mengubah perilakunya di sini:
+pcall(function()
+	-- matikan listener lama tidak memungkinkan; jadi kita bikin ulang closeBtn
+	-- dengan logika hide saja.
+	local oldClose = header:FindFirstChildWhichIsA("TextButton", true)
+	-- cari tombol X di header (warna bad)
+	for _, c in ipairs(header:GetDescendants()) do
+		if c:IsA("TextButton") and c.Text == "✕" then
+			-- replace listener: hapus koneksi lama tidak bisa, jadi deteksi
+			-- dengan menambahkan listener baru yang lebih "kuat" — kita set
+			-- host.Enabled = false saat closeBtn diklik, dan floating tetap
+			-- aktif di StarterGui yg sama? solusi: pindahkan floatBtn ke
+			-- ScreenGui terpisah agar tidak ikut destroy
+			break
+		end
+	end
+end)
+
+-- ⚠️ Karena closeBtn (Part 5) memanggil host:Destroy(), floatBtn juga akan hilang.
+-- Solusi: pindahkan floatBtn ke ScreenGui terpisah "FlyHubFloating".
+local floatHost = mk("ScreenGui", {
+	Name = "FlyHubFloating",
+	ResetOnSpawn = false,
+	IgnoreGuiInset = true,
+	ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+	DisplayOrder = 1000,
+}, (gethui and gethui()) or CoreGui)
+getgenv().FlyHubFloat = floatHost
+
+-- Pindahkan floatBtn ke floatHost
+floatBtn.Parent = floatHost
+
+-- Ubah closeBtn: jangan destroy, cukup sembunyikan mainPanel
+-- (karena listener lama tidak bisa dilepas, kita override dengan
+-- menambahkan listener yang akan re-show panel kalau perlu)
+-- Trik: ganti closeBtn dengan clone baru tanpa listener lama.
+pcall(function()
+	local oldClose = nil
+	for _, c in ipairs(header:GetChildren()) do
+		if c:IsA("TextButton") and c.Text == "✕" then oldClose = c break end
+	end
+	if oldClose then
+		local newClose = oldClose:Clone()
+		newClose.Parent = header
+		oldClose:Destroy()
+		newClose.Activated:Connect(function()
+			setPanelOpen(false)
+		end)
+	end
+end)
+
+-- Pastikan tombol floating tetap muncul meski panel ditutup
+floatBtn.Visible = true
+
+-- Info
+task.delay(1.5, function()
+	if setStatus then
+		setStatus("💡 Klik ikon FlyHub kiri layar untuk buka/tutup panel", false)
+	end
+end)
