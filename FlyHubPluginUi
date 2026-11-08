@@ -1,0 +1,1785 @@
+--[[
+    FlyHub PluginUI v2.0 — Delta Edition (Part 1/5)
+    Wanta Studio · Executor delta script
+    Fitur: 16 template, 8 tema, partikel UI & 3D, kustom template, asset manager.
+    Cara pakai: paste Part 1-5 jadi 1 file, execute.
+]]
+
+if not (game and game.Players) then return end
+if getgenv and getgenv().FlyHubLoaded then
+    pcall(function() getgenv().FlyHubUI:Destroy() end)
+end
+if getgenv then getgenv().FlyHubLoaded = true end
+
+local Players = game:GetService("Players")
+local HttpService = game:GetService("HttpService")
+local Selection = game:GetService("Selection")
+local StarterGui = game:GetService("StarterGui")
+local Workspace = game:GetService("Workspace")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local InsertService = game:GetService("InsertService")
+local CoreGui = game:GetService("CoreGui")
+
+local LP = Players.LocalPlayer
+local C = Color3.fromRGB
+local WHITE = Color3.new(1,1,1)
+
+------------------------------------------------------------------------
+-- PERSISTENT STORAGE
+------------------------------------------------------------------------
+local function saveFile(name, data)
+    if makefolder and isfolder and not isfolder("FlyHub") then pcall(makefolder, "FlyHub") end
+    if writefile then
+        pcall(writefile, "FlyHub/"..name, type(data)=="table" and HttpService:JSONEncode(data) or tostring(data))
+    end
+end
+local function loadFile(name, default)
+    if isfile and isfile("FlyHub/"..name) then
+        local ok, data = pcall(readfile, "FlyHub/"..name)
+        if ok and data then
+            local ok2, parsed = pcall(function() return HttpService:JSONDecode(data) end)
+            if ok2 then return parsed end
+            return data
+        end
+    end
+    return default
+end
+if makefolder and isfolder and not isfolder("FlyHub") then pcall(makefolder, "FlyHub") end
+
+------------------------------------------------------------------------
+-- SKRIP PERILAKU (disisipkan ke ScreenGui target)
+------------------------------------------------------------------------
+local BEHAVIOR = [==[
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Debris = game:GetService("Debris")
+local gui = script.Parent
+local FX = {
+	Sparkle = {glyphs={"✦","✧","★"}, colors={Color3.fromRGB(255,240,150),Color3.fromRGB(255,255,255),Color3.fromRGB(150,220,255)}, gravity=0, speed=90, life=0.9},
+	Stars = {glyphs={"★","✦"}, colors={Color3.fromRGB(255,225,90),Color3.fromRGB(255,255,255)}, gravity=-30, speed=40, life=1.6},
+	Confetti = {glyphs={"■","▬","●"}, colors={Color3.fromRGB(255,80,120),Color3.fromRGB(255,220,60),Color3.fromRGB(80,220,255),Color3.fromRGB(120,255,140),Color3.fromRGB(190,120,255)}, gravity=160, speed=190, life=1.5, spin=true},
+	Coins = {glyphs={"●","◉"}, colors={Color3.fromRGB(255,205,40),Color3.fromRGB(255,232,110)}, gravity=170, speed=160, life=1.1},
+	Hearts = {glyphs={"❤"}, colors={Color3.fromRGB(255,90,130),Color3.fromRGB(255,60,90)}, gravity=-70, speed=70, life=1.3},
+	Bubbles = {glyphs={"○","◯"}, colors={Color3.fromRGB(170,225,255),Color3.fromRGB(255,255,255)}, gravity=-80, speed=45, life=1.7},
+	Snow = {glyphs={"❄","•"}, colors={Color3.fromRGB(255,255,255),Color3.fromRGB(200,230,255)}, gravity=70, speed=35, life=2},
+	Fire = {glyphs={"●","✹"}, colors={Color3.fromRGB(255,160,40),Color3.fromRGB(255,90,30),Color3.fromRGB(255,220,80)}, gravity=-110, speed=45, life=0.8},
+}
+local function tween(o,t,props,style) TweenService:Create(o, TweenInfo.new(t, style or Enum.EasingStyle.Quad, Enum.EasingDirection.Out), props):Play() end
+local function find(name) return gui:FindFirstChild(name,true) end
+local function centerOf(o) return o.AbsolutePosition + o.AbsoluteSize/2 - gui.AbsolutePosition end
+local function emit(kind, center, count)
+	local def = FX[kind] or FX.Sparkle
+	for _=1,count do
+		local p = Instance.new("TextLabel")
+		p.BackgroundTransparency=1; p.Text=def.glyphs[math.random(#def.glyphs)]
+		p.TextColor3=def.colors[math.random(#def.colors)]; p.TextSize=math.random(14,28)
+		p.Size=UDim2.fromOffset(24,24); p.AnchorPoint=Vector2.new(0.5,0.5)
+		p.Position=UDim2.fromOffset(center.X,center.Y); p.ZIndex=200; p.Rotation=math.random(-40,40); p.Parent=gui
+		local a=math.random()*math.pi*2; local s=def.speed*(0.4+math.random()*0.8)
+		local dx,dy=math.cos(a)*s, math.sin(a)*s+def.gravity
+		local life=def.life*(0.7+math.random()*0.6); local spin=def.spin and math.random(-360,360) or 0
+		TweenService:Create(p,TweenInfo.new(life,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{
+			Position=UDim2.fromOffset(center.X+dx,center.Y+dy), TextTransparency=1, Rotation=p.Rotation+spin,
+		}):Play()
+		Debris:AddItem(p,life+0.1)
+	end
+end
+local function setWindow(win, show)
+	win:SetAttribute("LShown", show)
+	local sc = win:FindFirstChild("LScale")
+	if show then
+		win.Visible=true
+		if sc then sc.Scale=0.8; TweenService:Create(sc,TweenInfo.new(0.28,Enum.EasingStyle.Back,Enum.EasingDirection.Out),{Scale=1}):Play() end
+	else
+		if sc then TweenService:Create(sc,TweenInfo.new(0.16,Enum.EasingStyle.Quad,Enum.EasingDirection.In),{Scale=0.8}):Play() end
+		task.delay(0.17, function() if win:GetAttribute("LShown")==false then win.Visible=false end end)
+	end
+end
+local spinners = {}
+RunService.Heartbeat:Connect(function(dt)
+	for o,s in pairs(spinners) do
+		if o.Parent then o.Rotation=(o.Rotation+s*dt)%360 else spinners[o]=nil end
+	end
+end)
+local function wire(o)
+	if not o:IsA("GuiObject") then return end
+	local rot = o:GetAttribute("LRotate")
+	if rot then spinners[o]=rot end
+	local amb = o:GetAttribute("LAmbient")
+	if amb then task.spawn(function()
+		while o.Parent do
+			if o.Visible and o.AbsoluteSize.X>0 then
+				local c=o.AbsolutePosition-gui.AbsolutePosition+Vector2.new(math.random()*o.AbsoluteSize.X,math.random()*o.AbsoluteSize.Y)
+				emit(amb,c,1)
+			end
+			task.wait(0.25)
+		end
+	end) end
+	if o:GetAttribute("LSlider") then
+		local fill,knob=o:FindFirstChild("Fill"),o:FindFirstChild("Knob")
+		local function set(v) v=math.clamp(v,0,1); o:SetAttribute("LValue",v)
+			if fill then fill.Size=UDim2.fromScale(v,1) end
+			if knob then knob.Position=UDim2.fromScale(v,0.5) end
+		end
+		set(o:GetAttribute("LValue") or 0.5)
+		local dragging=false
+		local function fromInput(i) set((i.Position.X-o.AbsolutePosition.X)/math.max(o.AbsoluteSize.X,1)) end
+		o.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then dragging=true; fromInput(i) end end)
+		UserInputService.InputChanged:Connect(function(i) if dragging and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then fromInput(i) end end)
+		UserInputService.InputEnded:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then dragging=false end end)
+	end
+	local toastTime=o:GetAttribute("LToast")
+	if toastTime then task.spawn(function()
+		local target=o.Position; local hidden=UDim2.new(target.X.Scale,target.X.Offset,-0.3,0)
+		o.Position=hidden; tween(o,0.5,{Position=target},Enum.EasingStyle.Back); task.wait(toastTime)
+		tween(o,0.35,{Position=hidden}); task.wait(0.4); o.Visible=false
+	end) end
+	local loadTime=o:GetAttribute("LLoading")
+	if loadTime then task.spawn(function()
+		local fill=o:FindFirstChild("Fill",true)
+		if fill then fill.Size=UDim2.fromScale(0,1); tween(fill,loadTime,{Size=UDim2.fromScale(1,1)},Enum.EasingStyle.Linear) end
+		task.wait(loadTime+0.2); o.Visible=false
+	end) end
+	if not o:IsA("GuiButton") then return end
+	local open=o:GetAttribute("LOpen")
+	if open then o.Activated:Connect(function() local t=find(open); if t then setWindow(t, not t.Visible) end end) end
+	if o:GetAttribute("LClose") then o.Activated:Connect(function()
+		local p=o.Parent
+		while p and p~=gui do
+			if p:GetAttribute("LWindow") then setWindow(p,false); return end
+			p=p.Parent
+		end
+	end) end
+	if o:GetAttribute("LHover") then
+		local sc=Instance.new("UIScale"); sc.Name="LHoverScale"; sc.Parent=o
+		o.MouseEnter:Connect(function() tween(sc,0.12,{Scale=1.07}) end)
+		o.MouseLeave:Connect(function() tween(sc,0.12,{Scale=1}) end)
+		o.MouseButton1Down:Connect(function() tween(sc,0.08,{Scale=0.93}) end)
+		o.MouseButton1Up:Connect(function() tween(sc,0.1,{Scale=1.07}) end)
+	end
+	local fx=o:GetAttribute("LFX")
+	if fx then o.Activated:Connect(function() emit(fx,centerOf(o),14) end) end
+	local tab=o:GetAttribute("LTab")
+	if tab then
+		local group=o:GetAttribute("LGroup")
+		o.Activated:Connect(function()
+			for _,d in ipairs(gui:GetDescendants()) do
+				if d:GetAttribute("LPage")==group then d.Visible=(d.Name==tab) end
+				if d:IsA("GuiButton") and d:GetAttribute("LGroup")==group and d:GetAttribute("LTab") then
+					local on,off=d:GetAttribute("LOn"),d:GetAttribute("LOff")
+					if on and off then d.BackgroundColor3=(d:GetAttribute("LTab")==tab) and on or off end
+				end
+			end
+		end)
+	end
+	if o:GetAttribute("LToggle") then
+		local knob=o:FindFirstChild("Knob")
+		local function render(animate)
+			local on=o:GetAttribute("LState")==true
+			local colorOn,colorOff=o:GetAttribute("LOn"),o:GetAttribute("LOff")
+			local gc=on and colorOn or colorOff; local gp=on and UDim2.fromScale(0.55,0.5) or UDim2.fromScale(0.05,0.5)
+			if animate then
+				if gc then tween(o,0.15,{BackgroundColor3=gc}) end
+				if knob then tween(knob,0.15,{Position=gp}) end
+			else
+				if gc then o.BackgroundColor3=gc end
+				if knob then knob.Position=gp end
+			end
+		end
+		render(false)
+		o.Activated:Connect(function() o:SetAttribute("LState", o:GetAttribute("LState")~=true); render(true) end)
+	end
+	local spin=o:GetAttribute("LSpin")
+	if spin then
+		local busy=false
+		o.Activated:Connect(function()
+			local wheel=find(spin); if not wheel or busy then return end
+			busy=true; local goal=wheel.Rotation+1440+math.random(0,359)
+			local t=TweenService:Create(wheel,TweenInfo.new(4.5,Enum.EasingStyle.Quint,Enum.EasingDirection.Out),{Rotation=goal})
+			t:Play(); t.Completed:Wait(); busy=false; emit("Confetti",centerOf(wheel),30)
+		end)
+	end
+end
+for _,d in ipairs(gui:GetDescendants()) do if d:GetAttribute("LStartHidden") then d.Visible=false end end
+for _,d in ipairs(gui:GetDescendants()) do wire(d) end
+]==]
+
+------------------------------------------------------------------------
+-- TEMA
+------------------------------------------------------------------------
+local THEMES = {
+	["Dark Pro"]      = {bg=C(14,16,24),  panel=C(26,30,44),  panel2=C(38,44,64),   accent=C(94,114,255),  accent2=C(0,200,255),   text=C(240,244,255), sub=C(150,160,190), stroke=C(70,80,120),  good=C(60,200,120),  bad=C(235,80,90),   font=Enum.Font.GothamBold,   radius=12, thick=2, pt=0},
+	["Neon Cyber"]    = {bg=C(8,6,20),    panel=C(20,14,42),  panel2=C(34,22,68),   accent=C(255,60,200),  accent2=C(0,240,255),   text=C(245,240,255), sub=C(170,150,220), stroke=C(120,60,220), good=C(60,255,170),  bad=C(255,70,110),  font=Enum.Font.GothamBlack,  radius=8,  thick=2, pt=0},
+	["Glass"]         = {bg=C(20,24,36),  panel=C(120,150,200),panel2=C(170,195,235),accent=C(90,170,255),  accent2=C(160,120,255), text=C(255,255,255), sub=C(220,230,250), stroke=C(255,255,255),good=C(70,210,140),  bad=C(240,90,110),  font=Enum.Font.GothamMedium, radius=16, thick=1, pt=0.35},
+	["Cartoon"]       = {bg=C(255,214,102),panel=C(255,255,255),panel2=C(255,236,179),accent=C(255,107,53),  accent2=C(255,200,0),   text=C(60,36,20),    sub=C(130,90,60),   stroke=C(60,36,20),   good=C(70,190,80),   bad=C(235,70,70),   font=Enum.Font.FredokaOne,   radius=14, thick=3, pt=0},
+	["Candy"]         = {bg=C(255,225,240),panel=C(255,240,250),panel2=C(255,214,236),accent=C(255,92,170),  accent2=C(180,120,255), text=C(90,40,80),    sub=C(160,100,150), stroke=C(255,160,210),good=C(80,205,150),  bad=C(255,90,110),  font=Enum.Font.FredokaOne,   radius=18, thick=3, pt=0},
+	["Minimal Light"] = {bg=C(240,242,248),panel=C(250,250,252),panel2=C(232,235,243),accent=C(70,90,255),   accent2=C(120,150,255), text=C(25,28,40),    sub=C(120,125,140), stroke=C(210,214,225),good=C(40,180,110),  bad=C(225,70,80),   font=Enum.Font.GothamMedium, radius=10, thick=1, pt=0},
+	["Sunset"]        = {bg=C(40,16,40),   panel=C(64,26,58),  panel2=C(92,38,76),   accent=C(255,120,60),  accent2=C(255,200,80),  text=C(255,240,230), sub=C(220,170,160), stroke=C(255,130,90), good=C(120,220,120), bad=C(255,80,90),   font=Enum.Font.GothamBold,   radius=14, thick=2, pt=0},
+	["Forest"]        = {bg=C(12,28,22),   panel=C(22,44,36),  panel2=C(34,66,52),   accent=C(70,200,110),  accent2=C(180,230,90),  text=C(232,255,240), sub=C(150,200,170), stroke=C(70,140,100), good=C(90,230,140),  bad=C(235,90,80),   font=Enum.Font.GothamBold,   radius=10, thick=2, pt=0},
+}
+local THEME_ORDER = {"Dark Pro","Neon Cyber","Glass","Cartoon","Candy","Minimal Light","Sunset","Forest"}
+local themeName = loadFile("theme.json", "Dark Pro") or "Dark Pro"
+if type(themeName) ~= "string" or not THEMES[themeName] then themeName = "Dark Pro" end
+local T = THEMES[themeName]
+
+------------------------------------------------------------------------
+-- UTIL & BUILDER GUI
+------------------------------------------------------------------------
+local function S(x,y) return UDim2.fromScale(x,y) end
+local function mk(class, props, parent)
+	local o = Instance.new(class)
+	for k,v in pairs(props) do o[k]=v end
+	if parent then o.Parent=parent end
+	return o
+end
+local function uid() return HttpService:GenerateGUID(false):sub(1,6) end
+
+local function applyOne(o)
+	local role = o:GetAttribute("LRole")
+	if role then
+		if o:IsA("GuiObject") then
+			if role=="Bg" then o.BackgroundColor3=T.bg
+			elseif role=="Panel" then o.BackgroundColor3=T.panel; o.BackgroundTransparency=T.pt
+			elseif role=="Panel2" then o.BackgroundColor3=T.panel2; o.BackgroundTransparency=T.pt
+			elseif role=="Accent" then o.BackgroundColor3=T.accent
+			elseif role=="Accent2" then o.BackgroundColor3=T.accent2
+			elseif role=="Good" then o.BackgroundColor3=T.good
+			elseif role=="Bad" then o.BackgroundColor3=T.bad
+			elseif role=="White" then o.BackgroundColor3=WHITE end
+		elseif o:IsA("UIStroke") then
+			if role=="Stroke" then o.Color=T.stroke; o.Thickness=T.thick
+			elseif role=="AccentStroke" then o.Color=T.accent; o.Thickness=T.thick end
+		elseif o:IsA("UICorner") then
+			if role=="Corner" then o.CornerRadius=UDim.new(0,T.radius) end
+		elseif o:IsA("UIGradient") then
+			if role=="Grad" then o.Color=ColorSequence.new(T.accent,T.accent2) end
+		end
+	end
+	local tr=o:GetAttribute("LText")
+	if tr and (o:IsA("TextLabel") or o:IsA("TextButton") or o:IsA("TextBox")) then
+		if tr=="Sub" then o.TextColor3=T.sub
+		elseif tr=="Accent" then o.TextColor3=T.accent
+		elseif tr=="Good" then o.TextColor3=T.good
+		elseif tr=="Bad" then o.TextColor3=T.bad
+		elseif tr=="White" then o.TextColor3=WHITE
+		elseif tr=="Dark" then o.TextColor3=C(20,20,30)
+		else o.TextColor3=T.text end
+		o.Font=T.font
+	end
+	local kind=o:GetAttribute("LKind")
+	if kind=="toggle" then
+		o:SetAttribute("LOn",T.good); o:SetAttribute("LOff",T.panel2)
+		o.BackgroundColor3=(o:GetAttribute("LState")==true) and T.good or T.panel2
+	elseif kind=="tab" then
+		o:SetAttribute("LOn",T.accent); o:SetAttribute("LOff",T.panel2)
+		o.BackgroundColor3=(o:GetAttribute("LActive")==true) and T.accent or T.panel2
+	end
+end
+local function applyTheme(root)
+	applyOne(root)
+	for _,d in ipairs(root:GetDescendants()) do applyOne(d) end
+end
+local function corner(p,full)
+	local c=mk("UICorner",{CornerRadius=full and UDim.new(0.5,0) or UDim.new(0,T.radius)},p)
+	if not full then c:SetAttribute("LRole","Corner") end
+	return c
+end
+local function stroke(p,role)
+	local s=mk("UIStroke",{ApplyStrokeMode=Enum.ApplyStrokeMode.Border, Color=T.stroke, Thickness=T.thick},p)
+	s:SetAttribute("LRole",role or "Stroke")
+	return s
+end
+local function ratio(p,r,dom) return mk("UIAspectRatioConstraint",{AspectRatio=r,DominantAxis=dom or Enum.DominantAxis.Width},p) end
+local function list(p,horizontal,pad,align)
+	return mk("UIListLayout",{
+		FillDirection=horizontal and Enum.FillDirection.Horizontal or Enum.FillDirection.Vertical,
+		Padding=UDim.new(pad or 0.02,0),
+		SortOrder=Enum.SortOrder.LayoutOrder,
+		HorizontalAlignment=align or Enum.HorizontalAlignment.Left,
+	},p)
+end
+local function frame(parent,name,size,pos,role)
+	local f=mk("Frame",{Name=name,Size=size,Position=pos or UDim2.new(),BorderSizePixel=0,BackgroundColor3=T.panel},parent)
+	if role then f:SetAttribute("LRole",role) else f.BackgroundTransparency=1 end
+	return f
+end
+local LEFT=Enum.TextXAlignment.Left
+local function text(parent,name,str,size,pos,trole,align,maxs)
+	local t=mk("TextLabel",{
+		Name=name,Size=size,Position=pos or UDim2.new(),BackgroundTransparency=1,Text=str,
+		TextScaled=true,TextXAlignment=align or Enum.TextXAlignment.Center,Font=T.font,TextColor3=T.text,BorderSizePixel=0,
+	},parent)
+	t:SetAttribute("LText",trole or "Text")
+	mk("UITextSizeConstraint",{MaxTextSize=maxs or 40,MinTextSize=8},t)
+	return t
+end
+local function button(parent,name,str,size,pos,role)
+	local b=mk("TextButton",{
+		Name=name,Size=size,Position=pos or UDim2.new(),AutoButtonColor=false,Text=str,TextScaled=true,
+		Font=T.font,TextColor3=WHITE,BorderSizePixel=0,BackgroundColor3=T.accent,
+	},parent)
+	b:SetAttribute("LRole",role or "Accent")
+	b:SetAttribute("LText","White")
+	b:SetAttribute("LHover",true)
+	corner(b)
+	mk("UITextSizeConstraint",{MaxTextSize=30,MinTextSize=8},b)
+	mk("UIPadding",{PaddingTop=UDim.new(0.18,0),PaddingBottom=UDim.new(0.18,0),PaddingLeft=UDim.new(0.08,0),PaddingRight=UDim.new(0.08,0)},b)
+	return b
+end
+local function window(parent,name,title,w,h,r)
+	local win=frame(parent,name,S(w or 0.55,h or 0.7),S(0.5,0.5),"Panel")
+	win.AnchorPoint=Vector2.new(0.5,0.5); win:SetAttribute("LWindow",true)
+	corner(win); stroke(win); ratio(win,r or 1.5)
+	mk("UISizeConstraint",{MinSize=Vector2.new(260,180),MaxSize=Vector2.new(980,700)},win)
+	mk("UIScale",{Name="LScale"},win)
+	local head=frame(win,"Header",S(1,0.12),nil,"Panel2")
+	corner(head)
+	text(head,"Title",title,S(0.7,0.7),S(0.04,0.15),"Text",LEFT,36)
+	local close=button(head,"Close","X",S(0.1,0.7),S(0.98,0.5),"Bad")
+	close.AnchorPoint=Vector2.new(1,0.5); ratio(close,1,Enum.DominantAxis.Height)
+	close:SetAttribute("LClose",true)
+	local body=frame(win,"Body",S(0.94,0.82),S(0.03,0.15))
+	return win, body
+end
+local function gridFrame(parent,name,size,pos,cols,rows)
+	local sf=mk("ScrollingFrame",{
+		Name=name,Size=size,Position=pos or UDim2.new(),BackgroundTransparency=1,BorderSizePixel=0,
+		ScrollBarThickness=4,AutomaticCanvasSize=Enum.AutomaticSize.Y,CanvasSize=UDim2.new(),
+	},parent)
+	mk("UIGridLayout",{
+		CellSize=S(1/cols-0.03,1/rows-0.03),CellPadding=S(0.02,0.02),
+		SortOrder=Enum.SortOrder.LayoutOrder,HorizontalAlignment=Enum.HorizontalAlignment.Center,
+	},sf)
+	return sf
+end
+
+local Comp={}
+function Comp.toggle(parent,name,size,pos,on)
+	local t=mk("TextButton",{Name=name,Size=size,Position=pos or UDim2.new(),Text="",AutoButtonColor=false,BorderSizePixel=0,BackgroundColor3=T.panel2},parent)
+	corner(t,true); ratio(t,2)
+	t:SetAttribute("LToggle",true); t:SetAttribute("LState",on and true or false); t:SetAttribute("LKind","toggle")
+	local k=mk("Frame",{Name="Knob",AnchorPoint=Vector2.new(0,0.5),Size=S(0.4,0.8),Position=on and S(0.55,0.5) or S(0.05,0.5),BackgroundColor3=WHITE,BorderSizePixel=0},t)
+	corner(k,true); ratio(k,1)
+	return t
+end
+function Comp.slider(parent,name,size,pos,value)
+	local tr=frame(parent,name,size,pos,"Panel2")
+	corner(tr,true); tr:SetAttribute("LSlider",true); tr:SetAttribute("LValue",value)
+	local fill=frame(tr,"Fill",S(value,1),nil,"Accent"); corner(fill,true)
+	local knob=frame(tr,"Knob",S(0,2.2),S(value,0.5),"White")
+	knob.AnchorPoint=Vector2.new(0.5,0.5); corner(knob,true); ratio(knob,1,Enum.DominantAxis.Height); stroke(knob,"AccentStroke")
+	return tr
+end
+function Comp.bar(parent,name,size,pos,pct,label)
+	local b=frame(parent,name,size,pos,"Panel2")
+	corner(b,true); stroke(b)
+	local f=frame(b,"Fill",S(pct,1),nil,"White"); corner(f,true)
+	mk("UIGradient",{Color=ColorSequence.new(T.accent,T.accent2)},f):SetAttribute("LRole","Grad")
+	if label then local l=text(b,"Value",label,S(0.8,0.8),S(0.1,0.1),"Text",nil,24); l.ZIndex=3 end
+	return b
+end
+function Comp.tabs(parent,group,names,rowSize,rowPos,pageSize,pagePos)
+	local row=frame(parent,"Tabs",rowSize,rowPos)
+	list(row,true,0.02)
+	local pages={}
+	for i,n in ipairs(names) do
+		local b=button(row,n.."Tab",n,S(1/#names-0.02,1),nil,"Panel2")
+		b:SetAttribute("LText","Text"); b:SetAttribute("LKind","tab")
+		b:SetAttribute("LTab",n.."Page"); b:SetAttribute("LGroup",group); b:SetAttribute("LActive",i==1)
+		local pg=frame(parent,n.."Page",pageSize,pagePos)
+		pg:SetAttribute("LPage",group); pg.Visible=(i==1)
+		pages[i]=pg
+	end
+	return row,pages
+end
+local function pill(parent,name,glyph,value,pos)
+	local p=frame(parent,name,S(0.18,0.06),pos,"Panel")
+	corner(p,true); stroke(p)
+	mk("UISizeConstraint",{MinSize=Vector2.new(110,28),MaxSize=Vector2.new(260,60)},p)
+	text(p,"Icon",glyph,S(0.2,0.8),S(0.05,0.1),"Text",nil,40)
+	text(p,"Value",value,S(0.5,0.7),S(0.28,0.15),"Text",LEFT,30)
+	local plus=button(p,"Add","+",S(0.16,0.7),S(0.97,0.5),"Good")
+	plus.AnchorPoint=Vector2.new(1,0.5); ratio(plus,1,Enum.DominantAxis.Height)
+	return p
+end
+local function itemCard(parent,name,glyph,title,price)
+	local c=frame(parent,name,UDim2.new(),nil,"Panel2")
+	corner(c); stroke(c)
+	local ic=frame(c,"Icon",S(0.6,0.45),S(0.5,0.06),"Panel")
+	ic.AnchorPoint=Vector2.new(0.5,0); corner(ic); ratio(ic,1)
+	text(ic,"Glyph",glyph,S(0.8,0.8),S(0.1,0.1),"Text",nil,60)
+	text(c,"Title",title,S(0.9,0.14),S(0.05,0.54),"Text")
+	local b=button(c,"Buy",price,S(0.8,0.2),S(0.1,0.74),"Good")
+	b:SetAttribute("LFX","Sparkle")
+	return c
+end
+local function inputBox(parent,name,placeholder,size,pos)
+	local tb=mk("TextBox",{
+		Name=name,Size=size,Position=pos or UDim2.new(),BackgroundColor3=T.panel2,BorderSizePixel=0,Text="",
+		PlaceholderText=placeholder,ClearTextOnFocus=false,TextScaled=true,Font=T.font,TextColor3=T.text,
+		PlaceholderColor3=T.sub,
+	},parent)
+	tb:SetAttribute("LRole","Panel2"); tb:SetAttribute("LText","Text")
+	corner(tb); stroke(tb)
+	mk("UITextSizeConstraint",{MaxTextSize=28,MinTextSize=8},tb)
+	mk("UIPadding",{PaddingTop=UDim.new(0.15,0),PaddingBottom=UDim.new(0.15,0),PaddingLeft=UDim.new(0.04,0),PaddingRight=UDim.new(0.04,0)},tb)
+	return tb
+end
+-- [[LANJUT KE PART 2 →]]
+--[[ PART 2 — TEMPLATES (16) ]]
+
+local function tMainMenu(parent)
+	local root = frame(parent, "MainMenu", S(1,1), nil, "Bg")
+	root.BackgroundTransparency = 0.15
+	root:SetAttribute("LWindow", true)
+	root:SetAttribute("LAmbient", "Stars")
+	local sun = text(root, "Sunburst", "✹", S(0.9,0.9), S(0.72,0.5), "Accent", nil, 400)
+	sun.AnchorPoint = Vector2.new(0.5,0.5); sun.TextTransparency = 0.85
+	sun:SetAttribute("LRotate", 6); ratio(sun, 1)
+	local title = text(root, "Title", "NAMA GAME", S(0.5,0.2), S(0.06,0.1), "White", LEFT, 120)
+	mk("UIGradient", {Color=ColorSequence.new(T.accent, T.accent2), Rotation=90}, title):SetAttribute("LRole","Grad")
+	text(root, "Tagline", "Tagline game kamu di sini", S(0.4,0.05), S(0.06,0.3), "Sub", LEFT, 30)
+	local col = frame(root, "Buttons", S(0.26,0.5), S(0.06,0.4))
+	list(col, false, 0.02)
+	local defs = {{"▶  MAIN","Good",nil},{"🛒  Shop","Accent","ShopWindow"},{"🎒  Inventory","Accent","InventoryWindow"},{"🎁  Hadiah Harian","Accent","DailyRewardWindow"},{"⚙  Pengaturan","Panel2","SettingsWindow"}}
+	for i,d in ipairs(defs) do
+		local b = button(col, "Btn"..i, d[1], S(1,0.17), nil, d[2])
+		if d[2]=="Panel2" then b:SetAttribute("LText","Text") end
+		if d[3] then b:SetAttribute("LOpen", d[3])
+		else b:SetAttribute("LClose", true); b:SetAttribute("LFX","Sparkle") end
+	end
+	text(root, "Version", "v1.0.0", S(0.1,0.03), S(0.89,0.95), "Sub", Enum.TextXAlignment.Right, 18)
+	return root
+end
+
+local function tHUD(parent)
+	local root = frame(parent, "HUD", S(1,1))
+	pill(root, "Coins", "💰", "12,450", S(0.02,0.03))
+	pill(root, "Gems", "💎", "320", S(0.02,0.11))
+	Comp.bar(root, "XPBar", S(0.3,0.035), S(0.35,0.025), 0.62, "LV 12")
+	local side = frame(root, "SideButtons", S(0.08,0.55), S(0.9,0.2))
+	list(side, false, 0.03)
+	local defs = {{"🛒","ShopWindow"},{"🎒","InventoryWindow"},{"📜","QuestWindow"},{"⚙","SettingsWindow"}}
+	for i,d in ipairs(defs) do
+		local b = button(side, "Btn"..i, d[1], S(1,0.2), nil, "Panel")
+		b:SetAttribute("LText","Text"); b:SetAttribute("LOpen", d[2])
+		ratio(b, 1); stroke(b)
+	end
+	local bar = frame(root, "Hotbar", S(0.5,0.09), S(0.25,0.89))
+	list(bar, true, 0.01, Enum.HorizontalAlignment.Center)
+	for i=1,8 do
+		local slot = frame(bar, "Slot"..i, S(0.115,1), nil, "Panel2")
+		corner(slot); stroke(slot); ratio(slot, 1)
+		text(slot, "Key", tostring(i), S(0.3,0.3), S(0.08,0.05), "Sub", LEFT, 18)
+	end
+	return root
+end
+
+local function tShop(parent)
+	local win, body = window(parent, "ShopWindow", "🛒  Shop", 0.62, 0.72, 1.6)
+	win:SetAttribute("LStartHidden", true)
+	local _, pages = Comp.tabs(body, "ShopTabs", {"Pets","Boosts","Passes"}, S(1,0.1), S(0,0), S(1,0.88), S(0,0.12))
+	local items = {
+		{{"🐶","Dog","100"},{"🐱","Cat","250"},{"🦊","Fox","500"},{"🐲","Dragon","2.5K"},{"🦄","Unicorn","5K"},{"🐼","Panda","1K"},{"🦁","Lion","3K"},{"🐙","Octo","750"}},
+		{{"⚡","2x Speed","49 R$"},{"💰","2x Coins","99 R$"},{"🍀","Luck","149 R$"},{"⏱","Auto","199 R$"}},
+		{{"👑","VIP","399 R$"},{"🎒","+Slots","199 R$"},{"✨","Rainbow","299 R$"},{"🚀","Fly","249 R$"}},
+	}
+	for i,set in ipairs(items) do
+		local g = gridFrame(pages[i], "Grid", S(1,1), nil, 4, 2)
+		for j,it in ipairs(set) do itemCard(g, "Item"..j, it[1], it[2], it[3]) end
+	end
+	return win
+end
+
+local function tInventory(parent)
+	local win, body = window(parent, "InventoryWindow", "🎒  Inventory", 0.66, 0.74, 1.6)
+	win:SetAttribute("LStartHidden", true)
+	inputBox(body, "Search", "🔍 Cari item...", S(0.62,0.1), S(0,0))
+	local g = gridFrame(body, "Slots", S(0.62,0.87), S(0,0.13), 5, 4)
+	local glyphs = {"🗡","🛡","🏹","🧪","🍎","💎","🔑","📜","🎩","👟"}
+	for i=1,20 do
+		local s = button(g, "Slot"..i, glyphs[(i-1)%#glyphs+1], UDim2.new(), nil, "Panel2")
+		s:SetAttribute("LText","Text"); stroke(s)
+	end
+	local info = frame(body, "Details", S(0.35,1), S(0.65,0), "Panel2")
+	corner(info); stroke(info)
+	local ic = frame(info, "Icon", S(0.6,0.3), S(0.5,0.05), "Panel")
+	ic.AnchorPoint = Vector2.new(0.5,0); corner(ic); ratio(ic,1)
+	text(ic, "Glyph", "🗡", S(0.8,0.8), S(0.1,0.1), "Text", nil, 80)
+	text(info, "ItemName", "Nama Item", S(0.9,0.09), S(0.05,0.4), "Text")
+	text(info, "ItemDesc", "Deskripsi singkat item.", S(0.9,0.12), S(0.05,0.5), "Sub", nil, 20)
+	button(info, "Equip", "Pakai", S(0.84,0.1), S(0.08,0.68), "Good")
+	button(info, "Delete", "Buang", S(0.84,0.1), S(0.08,0.82), "Bad")
+	return win
+end
+
+local function tSettings(parent)
+	local win, body = window(parent, "SettingsWindow", "⚙  Pengaturan", 0.5, 0.74, 1.15)
+	win:SetAttribute("LStartHidden", true)
+	local col = frame(body, "Rows", S(1,1))
+	list(col, false, 0.02)
+	local function row(label)
+		local r = frame(col, label, S(1,0.13), nil, "Panel2")
+		corner(r)
+		text(r, "Label", label, S(0.5,0.6), S(0.04,0.2), "Text", LEFT, 28)
+		return r
+	end
+	for _,d in ipairs({{"Musik",true},{"Efek Suara",true},{"Getaran",false},{"Notifikasi",true}}) do
+		local r = row(d[1])
+		local t = Comp.toggle(r, "Toggle", S(0.16,0.6), S(0.97,0.5), d[2])
+		t.AnchorPoint = Vector2.new(1,0.5)
+	end
+	for _,d in ipairs({{"Volume Musik",0.7},{"Volume SFX",0.5}}) do
+		local r = row(d[1])
+		local s = Comp.slider(r, "Slider", S(0.36,0.14), S(0.94,0.5), d[2])
+		s.AnchorPoint = Vector2.new(1,0.5)
+	end
+	return win
+end
+
+local function tDaily(parent)
+	local win, body = window(parent, "DailyRewardWindow", "🎁  Hadiah Harian", 0.62, 0.7, 1.6)
+	win:SetAttribute("LStartHidden", true)
+	local g = gridFrame(body, "Days", S(1,1), nil, 4, 2)
+	local rewards = {{"💰","100"},{"💰","250"},{"💎","5"},{"💰","500"},{"🍀","Luck"},{"💎","15"},{"👑","Mega"}}
+	for i,r in ipairs(rewards) do
+		local c = frame(g, "Day"..i, UDim2.new(), nil, i==7 and "Accent" or "Panel2")
+		corner(c); stroke(c, i==7 and "AccentStroke" or "Stroke")
+		text(c, "DayLabel", "Hari "..i, S(0.8,0.18), S(0.1,0.05), i==7 and "White" or "Sub", nil, 22)
+		text(c, "Glyph", r[1], S(0.6,0.4), S(0.2,0.25), "Text", nil, 60)
+		text(c, "Reward", r[2], S(0.8,0.2), S(0.1,0.72), i==7 and "White" or "Text", nil, 26)
+	end
+	button(g, "Claim", "KLAIM", UDim2.new(), nil, "Good"):SetAttribute("LFX","Confetti")
+	return win
+end
+
+local function tSpin(parent)
+	local win, body = window(parent, "SpinWindow", "🎡  Spin Hadiah", 0.66, 0.78, 1.5)
+	win:SetAttribute("LStartHidden", true)
+	local wheel = frame(body, "Wheel", S(0.9,0.95), S(0.36,0.52), "Panel2")
+	wheel.AnchorPoint = Vector2.new(0.5,0.5); corner(wheel, true); stroke(wheel,"AccentStroke"); ratio(wheel,1)
+	local prizes = {"💰100","💎5","🍀Luck","💰500","⚡2x","💎20","🎁Box","👑VIP"}
+	for i,p in ipairs(prizes) do
+		local a = math.rad((i-1)*45)
+		local dot = frame(wheel, "Seg"..i, S(0.24,0.24), S(0.5+0.34*math.sin(a), 0.5-0.34*math.cos(a)), (i%2==0) and "Accent" or "Accent2")
+		dot.AnchorPoint = Vector2.new(0.5,0.5); corner(dot, true); ratio(dot,1)
+		text(dot, "Prize", p, S(0.8,0.5), S(0.1,0.25), "White", nil, 22).Rotation = (i-1)*45
+	end
+	local hub = frame(wheel, "Hub", S(0.14,0.14), S(0.5,0.5), "Panel")
+	hub.AnchorPoint = Vector2.new(0.5,0.5); corner(hub, true); stroke(hub); ratio(hub,1)
+	local ptr = text(body, "Pointer", "▼", S(0.08,0.1), S(0.36,0), "Bad", nil, 60)
+	ptr.AnchorPoint = Vector2.new(0.5,0); ptr.ZIndex = 5
+	local side = frame(body, "Side", S(0.26,0.9), S(0.74,0.05), "Panel2")
+	corner(side); stroke(side)
+	text(side, "Spins", "Spin: 3", S(0.84,0.14), S(0.08,0.1), "Text")
+	button(side, "SpinButton", "SPIN!", S(0.84,0.2), S(0.08,0.35), "Good"):SetAttribute("LSpin","Wheel")
+	text(side, "Timer", "Gratis lagi: 02:45:10", S(0.84,0.12), S(0.08,0.65), "Sub", nil, 20)
+	return win
+end
+
+local function tQuests(parent)
+	local win, body = window(parent, "QuestWindow", "📜  Misi", 0.6, 0.72, 1.4)
+	win:SetAttribute("LStartHidden", true)
+	local sf = mk("ScrollingFrame", {Name="List", Size=S(1,1), BackgroundTransparency=1, BorderSizePixel=0, ScrollBarThickness=4, AutomaticCanvasSize=Enum.AutomaticSize.Y, CanvasSize=UDim2.new()}, body)
+	list(sf, false, 0.025)
+	local quests = {{"Kumpulkan 100 Koin",0.8,"80/100"},{"Kalahkan 5 Musuh",0.4,"2/5"},{"Buka 3 Telur",1,"3/3"},{"Main 10 Menit",0.6,"6/10"},{"Beli 1 Pet",0,"0/1"}}
+	for i,q in ipairs(quests) do
+		local r = frame(sf, "Quest"..i, S(0.97,0.22), nil, "Panel2")
+		corner(r); stroke(r)
+		text(r, "Name", q[1], S(0.5,0.3), S(0.03,0.12), "Text", LEFT, 26)
+		Comp.bar(r, "Progress", S(0.5,0.22), S(0.03,0.58), q[2], q[3])
+		local b = button(r, "Claim", q[2]>=1 and "KLAIM" or "...", S(0.22,0.6), S(0.75,0.2), q[2]>=1 and "Good" or "Panel")
+		if q[2]<1 then b:SetAttribute("LText","Sub") end
+		b:SetAttribute("LFX","Coins")
+	end
+	return win
+end
+
+local function tLeaderboard(parent)
+	local win, body = window(parent, "LeaderboardWindow", "🏆  Leaderboard", 0.5, 0.78, 1.0)
+	win:SetAttribute("LStartHidden", true)
+	local col = frame(body, "Rows", S(1,1))
+	list(col, false, 0.012)
+	local names = {"ProGamer","NoobMaster","Wanta","Leooo","Builder99","Zeta","Luna","Kiko","Rey","Mochi"}
+	local medal = {C(255,205,40), C(200,205,215), C(205,127,50)}
+	for i=1,10 do
+		local r = frame(col, "Rank"..i, S(1,0.085), nil, "Panel2")
+		corner(r)
+		local n = text(r, "Rank", "#"..i, S(0.14,0.7), S(0.03,0.15), "Text", nil, 26)
+		if medal[i] then n:SetAttribute("LText", nil); n.TextColor3 = medal[i] end
+		text(r, "Name", names[i], S(0.45,0.7), S(0.2,0.15), "Text", LEFT, 26)
+		text(r, "Value", tostring(1000000 // i), S(0.28,0.7), S(0.68,0.15), "Sub", Enum.TextXAlignment.Right, 24)
+	end
+	return win
+end
+
+local function tLoading(parent)
+	local root = frame(parent, "LoadingScreen", S(1,1), nil, "Bg")
+	root.ZIndex = 50
+	root:SetAttribute("LLoading", 5); root:SetAttribute("LAmbient", "Sparkle")
+	local title = text(root, "Title", "NAMA GAME", S(0.5,0.2), S(0.25,0.3), "White", nil, 120)
+	mk("UIGradient", {Color=ColorSequence.new(T.accent, T.accent2), Rotation=90}, title):SetAttribute("LRole","Grad")
+	text(root, "Tip", "💡 Tips: Kumpulkan koin untuk membuka pet baru!", S(0.6,0.05), S(0.2,0.7), "Sub", nil, 26)
+	local bar = Comp.bar(root, "Bar", S(0.5,0.03), S(0.25,0.82), 0)
+	bar.Fill.Size = S(0.3,1)
+	text(root, "Loading", "Memuat...", S(0.2,0.04), S(0.4,0.87), "Text", nil, 22)
+	return root
+end
+
+local function tToast(parent)
+	local t = frame(parent, "Toast", S(0.34,0.09), S(0.5,0.03), "Panel")
+	t.AnchorPoint = Vector2.new(0.5,0); t:SetAttribute("LToast", 3)
+	corner(t); stroke(t,"AccentStroke")
+	mk("UISizeConstraint", {MinSize=Vector2.new(200,40), MaxSize=Vector2.new(520,90)}, t)
+	text(t, "Icon", "🎉", S(0.14,0.7), S(0.03,0.15), "Text", nil, 50)
+	text(t, "Message", "Level Up! Kamu naik ke LV 13", S(0.76,0.6), S(0.2,0.2), "Text", LEFT, 28)
+	return t
+end
+
+local function tCodes(parent)
+	local win, body = window(parent, "CodesWindow", "🔑  Kode Redeem", 0.42, 0.5, 1.3)
+	win:SetAttribute("LStartHidden", true)
+	text(body, "Hint", "Masukkan kode untuk dapat hadiah gratis!", S(0.9,0.14), S(0.05,0.05), "Sub", nil, 24)
+	inputBox(body, "Code", "KODE...", S(0.9,0.2), S(0.05,0.28))
+	button(body, "Redeem", "REDEEM", S(0.6,0.2), S(0.2,0.58), "Good"):SetAttribute("LFX","Confetti")
+	text(body, "Status", "", S(0.9,0.1), S(0.05,0.84), "Good", nil, 20)
+	return win
+end
+
+local function tTeleport(parent)
+	local win, body = window(parent, "TeleportWindow", "🗺  Teleport", 0.6, 0.7, 1.5)
+	win:SetAttribute("LStartHidden", true)
+	local g = gridFrame(body, "Worlds", S(1,1), nil, 2, 2)
+	for i,w in ipairs({{"🏝","Spawn"},{"🌲","Hutan"},{"🏜","Gurun"},{"❄","Salju"}}) do
+		itemCard(g, "World"..i, w[1], w[2], "Teleport")
+	end
+	return win
+end
+
+local function tConfirm(parent)
+	local win, body = window(parent, "ConfirmWindow", "Konfirmasi", 0.36, 0.4, 1.6)
+	win:SetAttribute("LStartHidden", true)
+	text(body, "Question", "Apakah kamu yakin?", S(0.9,0.4), S(0.05,0.08), "Text", nil, 34)
+	button(body, "Yes", "Ya", S(0.42,0.3), S(0.05,0.6), "Good"):SetAttribute("LClose", true)
+	button(body, "No", "Batal", S(0.42,0.3), S(0.53,0.6), "Bad"):SetAttribute("LClose", true)
+	return win
+end
+
+local function tStats(parent)
+	local win, body = window(parent, "StatsWindow", "⚔  Stats", 0.46, 0.7, 1.1)
+	win:SetAttribute("LStartHidden", true)
+	text(body, "Points", "Poin: 12", S(0.5,0.1), S(0.25,0), "Accent", nil, 34)
+	local col = frame(body, "Rows", S(1,0.88), S(0,0.12))
+	list(col, false, 0.02)
+	for _,n in ipairs({"Melee","Defense","Sword","Gun","Fruit"}) do
+		local r = frame(col, n, S(1,0.17), nil, "Panel2")
+		corner(r)
+		text(r, "Name", n, S(0.4,0.6), S(0.04,0.2), "Text", LEFT, 26)
+		text(r, "Level", "Lv. 1", S(0.25,0.6), S(0.45,0.2), "Sub", nil, 24)
+		local b = button(r, "Plus", "+", S(0.14,0.7), S(0.96,0.5), "Accent")
+		b.AnchorPoint = Vector2.new(1,0.5); ratio(b,1,Enum.DominantAxis.Height)
+		b:SetAttribute("LFX","Sparkle")
+	end
+	return win
+end
+
+local function tOffer(parent)
+	local win, body = window(parent, "OfferWindow", "🔥  Penawaran Terbatas", 0.5, 0.72, 1.1)
+	win:SetAttribute("LStartHidden", true)
+	body.ClipsDescendants = true
+	local sun = text(body, "Sunburst", "✹", S(1.1,1.1), S(0.5,0.4), "Accent", nil, 500)
+	sun.AnchorPoint = Vector2.new(0.5,0.5); sun.TextTransparency = 0.8; sun:SetAttribute("LRotate", 10); ratio(sun,1)
+	local t = text(body, "Title", "STARTER PACK", S(0.8,0.14), S(0.1,0.02), "White", nil, 60)
+	mk("UIGradient", {Color=ColorSequence.new(T.accent, T.accent2), Rotation=90}, t):SetAttribute("LRole","Grad")
+	local row = frame(body, "Items", S(0.9,0.34), S(0.05,0.2))
+	list(row, true, 0.04, Enum.HorizontalAlignment.Center)
+	for i,g in ipairs({"💰","🐲","👑"}) do
+		local c = frame(row, "Item"..i, S(0.3,1), nil, "Panel2")
+		corner(c); stroke(c); ratio(c,1)
+		text(c, "Glyph", g, S(0.7,0.7), S(0.15,0.15), "Text", nil, 70)
+	end
+	text(body, "Value", "Nilai 5x lipat!", S(0.7,0.08), S(0.15,0.58), "Text", nil, 28)
+	button(body, "Buy", "199 R$", S(0.5,0.14), S(0.25,0.7), "Good"):SetAttribute("LFX","Confetti")
+	text(body, "Timer", "Berakhir: 23:59:59", S(0.6,0.06), S(0.2,0.9), "Sub", nil, 20)
+	return win
+end
+
+local TEMPLATES = {
+	{name="🏠 Main Menu",         desc="Pet Sim / Adopt Me",        build=tMainMenu},
+	{name="📊 HUD Simulator",     desc="Koin, XP, hotbar",          build=tHUD},
+	{name="🛒 Shop (Tab)",        desc="Pets, Boosts, Passes",      build=tShop},
+	{name="🎒 Inventory",         desc="Grid slot + detail",        build=tInventory},
+	{name="⚙ Pengaturan",         desc="Toggle + slider",           build=tSettings},
+	{name="🎁 Hadiah Harian",     desc="7 hari + klaim",            build=tDaily},
+	{name="🎡 Spin Wheel",        desc="Roda putar hadiah",         build=tSpin},
+	{name="📜 Misi / Quest",      desc="Progress + klaim",          build=tQuests},
+	{name="🏆 Leaderboard",       desc="Top 10 + medali",           build=tLeaderboard},
+	{name="⏳ Loading Screen",    desc="Bar otomatis",              build=tLoading},
+	{name="🔔 Notifikasi Toast",  desc="Slide in/out otomatis",     build=tToast},
+	{name="🔑 Kode Redeem",       desc="Input kode",                build=tCodes},
+	{name="🗺 Teleport Dunia",    desc="Kartu dunia",               build=tTeleport},
+	{name="❓ Popup Konfirmasi",  desc="Ya / Batal",                build=tConfirm},
+	{name="⚔ Stats (RPG)",        desc="Poin stat ala Blox Fruits",build=tStats},
+	{name="🔥 Penawaran Terbatas",desc="Starter pack + timer",      build=tOffer},
+}
+--[[ PART 3 — ELEMENTS · INSERT · PARTIKEL · SERIALIZE ]]
+
+local ELEMENTS = {
+	{"Tombol", function(p) return button(p, "Button", "Tombol", S(0.2,0.08), S(0.4,0.46)) end},
+	{"Tombol Tutup", function(p)
+		local b = button(p, "CloseButton", "X", S(0.06,0.06), S(0.9,0.04), "Bad")
+		b:SetAttribute("LClose", true); ratio(b, 1); return b
+	end},
+	{"Panel", function(p)
+		local f = frame(p, "Panel", S(0.4,0.4), S(0.3,0.3), "Panel")
+		corner(f); stroke(f); return f
+	end},
+	{"Window", function(p) return (window(p, "Window", "Judul")) end},
+	{"Label", function(p) return text(p, "Label", "Teks", S(0.3,0.08), S(0.35,0.46), "Text") end},
+	{"Gambar", function(p)
+		local i = mk("ImageLabel", {Name="Image", Size=S(0.2,0.2), Position=S(0.4,0.4), BackgroundColor3=T.panel2, BorderSizePixel=0, Image="", ScaleType=Enum.ScaleType.Fit}, p)
+		i:SetAttribute("LRole","Panel2"); corner(i); ratio(i,1); return i
+	end},
+	{"Input Teks", function(p) return inputBox(p, "TextBox", "Ketik di sini...", S(0.4,0.07), S(0.3,0.46)) end},
+	{"Toggle", function(p) return Comp.toggle(p, "Toggle", S(0.1,0.05), S(0.45,0.48), false) end},
+	{"Slider", function(p) return Comp.slider(p, "Slider", S(0.3,0.015), S(0.35,0.48), 0.5) end},
+	{"Progress Bar", function(p) return Comp.bar(p, "ProgressBar", S(0.3,0.04), S(0.35,0.48), 0.6, "60%") end},
+	{"Tab Bar", function(p)
+		local c = frame(p, "TabsDemo", S(0.5,0.4), S(0.25,0.3), "Panel")
+		corner(c); stroke(c)
+		local inner = frame(c, "Inner", S(0.94,0.9), S(0.03,0.05))
+		local _, pages = Comp.tabs(inner, "Tabs"..uid(), {"Tab1","Tab2","Tab3"}, S(1,0.16), S(0,0), S(1,0.82), S(0,0.18))
+		for i,pg in ipairs(pages) do text(pg, "Content", "Isi Tab "..i, S(0.8,0.2), S(0.1,0.4), "Text") end
+		return c
+	end},
+	{"Pill Mata Uang", function(p) return pill(p, "CurrencyPill", "💰", "1,000", S(0.4,0.46)) end},
+	{"Kartu Item", function(p)
+		local c = itemCard(p, "ItemCard", "🐶", "Item", "100")
+		c.Size = S(0.18,0.34); c.Position = S(0.41,0.33); return c
+	end},
+	{"Grid Item", function(p)
+		local g = gridFrame(p, "ItemGrid", S(0.6,0.5), S(0.2,0.25), 3, 2)
+		for i=1,6 do itemCard(g, "Item"..i, "🎁", "Item "..i, "100") end
+		return g
+	end},
+	{"Badge Notif", function(p)
+		local b = frame(p, "Badge", S(0.03,0.03), S(0.5,0.5), "Bad")
+		corner(b, true); ratio(b,1)
+		text(b, "Count", "3", S(0.8,0.8), S(0.1,0.1), "White", nil, 20)
+		return b
+	end},
+	{"Garis Pemisah", function(p) return frame(p, "Divider", S(0.4,0.004), S(0.3,0.5), "Panel2") end},
+}
+
+local statusLabel
+local function setStatus(msg, bad)
+	if not statusLabel then return end
+	statusLabel.Text = msg
+	statusLabel.TextColor3 = bad and Color3.fromRGB(240,90,100) or Color3.fromRGB(70,210,130)
+end
+
+local function record(name, fn)
+	local CHS = nil
+	pcall(function() CHS = game:GetService("ChangeHistoryService") end)
+	if CHS and CHS.TryBeginRecording then
+		local rid = CHS:TryBeginRecording("FlyHub "..name)
+		local ok, res = pcall(fn)
+		if rid then pcall(function() CHS:FinishRecording(rid, ok and Enum.FinishRecordingOperation.Commit or Enum.FinishRecordingOperation.Cancel) end) end
+		return ok, res
+	end
+	return pcall(fn)
+end
+
+local function ensureBehavior(g)
+	if g and g:IsA("ScreenGui") and not g:FindFirstChild("FlyHubBehavior") then
+		local ls = Instance.new("LocalScript")
+		ls.Name = "FlyHubBehavior"; ls.Source = BEHAVIOR; ls.Parent = g
+	end
+end
+
+local function ensureMainGui()
+	local g = StarterGui:FindFirstChild("FlyHubGUI")
+	if not g then
+		g = mk("ScreenGui", {Name="FlyHubGUI", ResetOnSpawn=false, IgnoreGuiInset=true, ZIndexBehavior=Enum.ZIndexBehavior.Sibling}, StarterGui)
+		pcall(function() g.ScreenInsets = Enum.ScreenInsets.DeviceSafeInsets end)
+	end
+	ensureBehavior(g)
+	return g
+end
+
+local function targetParent()
+	local sel
+	pcall(function() sel = Selection:Get()[1] end)
+	if sel and (sel:IsA("LayerCollector") or sel:IsA("GuiObject")) then return sel end
+	return ensureMainGui()
+end
+
+local function ownerGui(o)
+	if o:IsA("LayerCollector") then return o end
+	return o:FindFirstAncestorWhichIsA("LayerCollector")
+end
+
+local function uniqueName(root)
+	local base, n = root.Name, 1
+	while true do
+		local clash = false
+		for _, c in ipairs(root.Parent:GetChildren()) do
+			if c ~= root and c.Name == root.Name then clash = true break end
+		end
+		if not clash then return end
+		n += 1; root.Name = base..n
+	end
+end
+
+local function insert(builder, label, noTheme)
+	local parent = targetParent()
+	local ok, res = record(label, function()
+		local o = builder(parent)
+		if not noTheme then applyTheme(o) end
+		uniqueName(o)
+		ensureBehavior(ownerGui(parent))
+		pcall(function() Selection:Set({o}) end)
+	end)
+	setStatus(ok and ("✔ "..label.." ditambahkan") or ("✖ "..tostring(res)), not ok)
+end
+
+local function selectedGuis()
+	local r = {}
+	pcall(function()
+		for _, o in ipairs(Selection:Get()) do
+			if o:IsA("GuiObject") then r[#r+1] = o end
+		end
+	end)
+	return r
+end
+
+local function rootsOrAll()
+	local sel = {}
+	pcall(function() sel = Selection:Get() end)
+	if #sel > 0 then return sel end
+	return {StarterGui}
+end
+
+local TEX = {
+	sparkles = "rbxasset://textures/particles/sparkles_main.dds",
+	fire = "rbxasset://textures/particles/fire_main.dds",
+	smoke = "rbxasset://textures/particles/smoke_main.dds",
+}
+local function nsq(l)
+	if #l < 2 then l = {l[1], l[1]} end
+	local kp = {}
+	for i,v in ipairs(l) do kp[i] = NumberSequenceKeypoint.new((i-1)/(#l-1), v) end
+	return NumberSequence.new(kp)
+end
+local function csq(l)
+	if #l < 2 then l = {l[1], l[1]} end
+	local kp = {}
+	for i,v in ipairs(l) do kp[i] = ColorSequenceKeypoint.new((i-1)/(#l-1), v) end
+	return ColorSequence.new(kp)
+end
+
+local EMITTERS = {
+	{"✨ Sparkle",   {tex="sparkles", rate=20, life={0.8,1.6}, speed={1,4}, size={0.5,0.9,0}, colors={C(255,240,150),C(255,255,255)}, accel=Vector3.new(0,1,0), spread=180, light=1}},
+	{"🔥 Api",       {tex="fire",     rate=40, life={0.6,1.2}, speed={2,4}, size={1.2,1.6,0}, colors={C(255,230,90),C(255,140,40),C(220,50,30)}, accel=Vector3.new(0,4,0), spread=12, light=0.8, alpha={0.2,0.4,1}}},
+	{"💨 Asap",      {tex="smoke",    rate=12, life={2,3.5}, speed={1,3}, size={1,3,5}, colors={C(140,140,150),C(80,80,90)}, accel=Vector3.new(0,2,0), spread=15, light=0, alpha={0.6,0.7,1}}},
+	{"🔮 Aura Magic",{tex="sparkles", rate=30, life={1,2}, speed={0.5,2}, size={0.7,0.4,0}, colors={C(170,90,255),C(0,220,255)}, accel=Vector3.new(0,3,0), spread=180, light=1}},
+	{"⬆ Level Up",   {tex="sparkles", rate=50, life={0.8,1.4}, speed={6,12}, size={0.8,0.6,0}, colors={C(255,220,80),C(255,255,255)}, accel=Vector3.new(0,-8,0), spread=60, light=1}},
+	{"❄ Salju",       {tex="sparkles", rate=25, life={4,6}, speed={0.5,1.5}, size={0.3,0.3,0.2}, colors={C(255,255,255),C(200,230,255)}, accel=Vector3.new(0,-2,0), spread=40, light=0.3, dir=Enum.NormalId.Bottom}},
+	{"💚 Heal",       {tex="sparkles", rate=20, life={1,1.8}, speed={1,3}, size={0.6,0.4,0}, colors={C(120,255,160),C(255,255,255)}, accel=Vector3.new(0,3,0), spread=90, light=1}},
+	{"💰 Koin",       {tex="sparkles", rate=30, life={0.8,1.4}, speed={6,10}, size={0.5,0.5,0.1}, colors={C(255,205,40),C(255,240,150)}, accel=Vector3.new(0,-20,0), spread=45, light=0.8}},
+	{"🎉 Confetti",   {tex="sparkles", rate=50, life={1,2}, speed={8,16}, size={0.5,0.5,0.2}, colors={C(255,80,120),C(255,220,60),C(80,220,255),C(120,255,140)}, accel=Vector3.new(0,-20,0), spread=60, light=0.5}},
+}
+
+local function makeEmitter(name, def)
+	local e = Instance.new("ParticleEmitter")
+	e.Name = name
+	e.Texture = TEX[def.tex]
+	e.Rate = def.rate
+	e.Lifetime = NumberRange.new(def.life[1], def.life[2])
+	e.Speed = NumberRange.new(def.speed[1], def.speed[2])
+	e.Size = nsq(def.size)
+	e.Transparency = nsq(def.alpha or {0,0.2,1})
+	e.Color = csq(def.colors)
+	e.Acceleration = def.accel or Vector3.new()
+	e.SpreadAngle = Vector2.new(def.spread, def.spread)
+	e.LightEmission = def.light or 0.5
+	e.Rotation = NumberRange.new(-180, 180)
+	e.RotSpeed = NumberRange.new(-60, 60)
+	e.EmissionDirection = def.dir or Enum.NormalId.Top
+	return e
+end
+
+local function attach3D(name, def)
+	local ok, res = record("Partikel "..name, function()
+		local target
+		pcall(function() target = Selection:Get()[1] end)
+		local att
+		if target and target:IsA("Attachment") then att = target
+		elseif target and target:IsA("BasePart") then
+			att = Instance.new("Attachment"); att.Name = "FlyHubFX"; att.Parent = target
+		else
+			local part = Instance.new("Part")
+			part.Name = "FlyHubFX_Part"; part.Anchored = true; part.CanCollide = false
+			part.Size = Vector3.new(1,1,1); part.Transparency = 0.8
+			local cam = Workspace.CurrentCamera
+			part.Position = cam and cam.CFrame.Position + cam.CFrame.LookVector * 8 or Vector3.new(0,5,0)
+			part.Parent = Workspace
+			att = Instance.new("Attachment"); att.Name = "FlyHubFX"; att.Parent = part
+		end
+		makeEmitter(name:gsub("^[^%w]+%s*", ""), def).Parent = att
+		pcall(function() Selection:Set({att}) end)
+	end)
+	setStatus(ok and ("✔ Partikel "..name.." dipasang") or ("✖ "..tostring(res)), not ok)
+end
+
+local PROPS = {
+	"Name","Size","Position","AnchorPoint","Rotation","BackgroundColor3","BackgroundTransparency","BorderSizePixel","Visible","ZIndex",
+	"LayoutOrder","ClipsDescendants","Active","SizeConstraint",
+	"Text","TextColor3","TextSize","TextScaled","TextWrapped","Font","TextXAlignment","TextYAlignment","TextTransparency",
+	"TextStrokeTransparency","TextStrokeColor3","RichText","PlaceholderText","PlaceholderColor3","ClearTextOnFocus","MultiLine","AutoButtonColor",
+	"Image","ImageColor3","ImageTransparency","ScaleType","ResampleMode",
+	"CanvasSize","ScrollBarThickness","AutomaticCanvasSize","ScrollingDirection","ScrollBarImageColor3",
+	"CornerRadius","Color","Thickness","ApplyStrokeMode","Transparency","AspectRatio","AspectType","DominantAxis","MinSize","MaxSize",
+	"MinTextSize","MaxTextSize","Scale","FillDirection","HorizontalAlignment","VerticalAlignment","SortOrder","Padding","CellSize",
+	"CellPadding","StartCorner","PaddingTop","PaddingBottom","PaddingLeft","PaddingRight","Offset","Enabled",
+	"ResetOnSpawn","IgnoreGuiInset","ZIndexBehavior","DisplayOrder",
+}
+local function finite(n) return n == n and math.abs(n) ~= math.huge end
+
+local function enc(v)
+	local t = typeof(v)
+	if t == "number" then if not finite(v) then return nil end; return {"number", v}
+	elseif t == "string" or t == "boolean" then return {t, v}
+	elseif t == "Color3" then return {"C3", v.R, v.G, v.B}
+	elseif t == "UDim2" then return {"U2", v.X.Scale, v.X.Offset, v.Y.Scale, v.Y.Offset}
+	elseif t == "UDim" then return {"U1", v.Scale, v.Offset}
+	elseif t == "Vector2" then if not (finite(v.X) and finite(v.Y)) then return nil end return {"V2", v.X, v.Y}
+	elseif t == "EnumItem" then return {"E", tostring(v.EnumType), v.Name}
+	elseif t == "ColorSequence" then
+		local k = {}; for _,kp in ipairs(v.Keypoints) do k[#k+1] = {kp.Time, kp.Value.R, kp.Value.G, kp.Value.B} end
+		return {"CS", k}
+	elseif t == "NumberSequence" then
+		local k = {}; for _,kp in ipairs(v.Keypoints) do k[#k+1] = {kp.Time, kp.Value, kp.Envelope} end
+		return {"NS", k}
+	end
+	return nil
+end
+
+local function dec(e)
+	local t = e[1]
+	if t == "number" or t == "string" or t == "boolean" then return e[2]
+	elseif t == "C3" then return Color3.new(e[2], e[3], e[4])
+	elseif t == "U2" then return UDim2.new(e[2], e[3], e[4], e[5])
+	elseif t == "U1" then return UDim.new(e[2], e[3])
+	elseif t == "V2" then return Vector2.new(e[2], e[3])
+	elseif t == "E" then return Enum[e[2]][e[3]]
+	elseif t == "CS" then
+		local kp = {}; for _,k in ipairs(e[2]) do kp[#kp+1] = ColorSequenceKeypoint.new(k[1], Color3.new(k[2],k[3],k[4])) end
+		return ColorSequence.new(kp)
+	elseif t == "NS" then
+		local kp = {}; for _,k in ipairs(e[2]) do kp[#kp+1] = NumberSequenceKeypoint.new(k[1], k[2], k[3]) end
+		return NumberSequence.new(kp)
+	end
+	return nil
+end
+
+local defaults = {}
+local function getDefault(class)
+	if defaults[class] == nil then
+		local ok, o = pcall(Instance.new, class)
+		defaults[class] = ok and o or false
+	end
+	return defaults[class]
+end
+
+local function serialize(inst)
+	local node = {c = inst.ClassName, p = {}, a = {}, k = {}}
+	local def = getDefault(inst.ClassName)
+	for _, prop in ipairs(PROPS) do
+		local ok, v = pcall(function() return inst[prop] end)
+		if ok then
+			local e = enc(v)
+			if e then
+				local same = false
+				if def then
+					local ok2, dv = pcall(function() return def[prop] end)
+					if ok2 then
+						local de = enc(dv)
+						same = de ~= nil and HttpService:JSONEncode(de) == HttpService:JSONEncode(e)
+					end
+				end
+				if prop == "Name" or not same then node.p[prop] = e end
+			end
+		end
+	end
+	for k,v in pairs(inst:GetAttributes()) do
+		local e = enc(v)
+		if e then node.a[k] = e end
+	end
+	for _, ch in ipairs(inst:GetChildren()) do
+		if ch:IsA("GuiBase2d") or ch:IsA("UIComponent") then node.k[#node.k+1] = serialize(ch) end
+	end
+	return node
+end
+
+local function deserialize(node, parent)
+	local o = Instance.new(node.c)
+	for prop, e in pairs(node.p) do pcall(function() o[prop] = dec(e) end) end
+	for k, e in pairs(node.a) do local v = dec(e) if v ~= nil then o:SetAttribute(k, v) end end
+	for _, ch in ipairs(node.k) do deserialize(ch, o) end
+	o.Parent = parent
+	return o
+end
+
+local function getSaved()
+	local s = loadFile("templates.json", {})
+	return type(s) == "table" and s or {}
+end
+local function setSaved(s) saveFile("templates.json", s) end
+--[[ PART 4 — ASET · ALAT · UI HOST SETUP ]]
+
+local function detectMime(bytes)
+	if #bytes > 4 and bytes:byte(1)==137 and bytes:byte(2)==80 and bytes:byte(3)==78 and bytes:byte(4)==71 then return "image/png","png" end
+	if #bytes > 3 and bytes:byte(1)==255 and bytes:byte(2)==216 and bytes:byte(3)==255 then return "image/jpeg","jpg" end
+	return nil
+end
+
+local function uploadImage(bytes, name)
+	local key = loadFile("apikey.txt", "")
+	local cid = loadFile("creatorid.txt", "")
+	local ctype = loadFile("creatortype.txt", "User")
+	if key == "" or cid == "" then return nil, "Isi API Key & Creator ID di tab Setelan" end
+	local mime, ext = detectMime(bytes)
+	if not mime then return nil, "Format harus PNG atau JPG" end
+	local creator = (ctype == "Group") and {groupId=tostring(cid)} or {userId=tostring(cid)}
+	local req = HttpService:JSONEncode({assetType="Decal", displayName=tostring(name):sub(1,50), description="FlyHub upload", creationContext={creator=creator}})
+	local boundary = "FLYHUB"..(HttpService:GenerateGUID(false):gsub("-",""))
+	local body = "--"..boundary.."\r\nContent-Disposition: form-data; name=\"request\"\r\nContent-Type: application/json\r\n\r\n"..req
+		.."\r\n--"..boundary.."\r\nContent-Disposition: form-data; name=\"fileContent\"; filename=\"upload."..ext.."\"\r\nContent-Type: "..mime.."\r\n\r\n"
+		..bytes.."\r\n--"..boundary.."--\r\n"
+	local ok, res = pcall(function()
+		return HttpService:RequestAsync({Url="https://apis.roblox.com/assets/v1/assets", Method="POST",
+			Headers={["x-api-key"]=key, ["Content-Type"]="multipart/form-data; boundary="..boundary}, Body=body})
+	end)
+	if not ok then return nil, tostring(res) end
+	if not res.Success then return nil, "HTTP "..res.StatusCode..": "..tostring(res.Body):sub(1,140) end
+	local data = HttpService:JSONDecode(res.Body)
+	local opPath = data.path
+	for _=1,30 do
+		if data.done or not opPath then break end
+		task.wait(1.5)
+		local ok2, r2 = pcall(function()
+			return HttpService:RequestAsync({Url="https://apis.roblox.com/assets/v1/"..opPath, Method="GET", Headers={["x-api-key"]=key}})
+		end)
+		if ok2 and r2.Success then data = HttpService:JSONDecode(r2.Body) end
+	end
+	if data.done and data.response and data.response.assetId then return tostring(data.response.assetId) end
+	if data.done and data.error then return nil, tostring(data.error.message or "Upload ditolak") end
+	return nil, "Timeout / sedang dimoderasi"
+end
+
+local function addImage(id)
+	local parent = targetParent()
+	local img = mk("ImageLabel", {Name="Image_"..id, BackgroundTransparency=1, Size=S(0.2,0.2), Position=S(0.4,0.4),
+		Image="rbxassetid://"..id, ScaleType=Enum.ScaleType.Fit, BorderSizePixel=0}, parent)
+	ratio(img, 1)
+	ensureBehavior(ownerGui(parent))
+	pcall(function() Selection:Set({img}) end)
+	return img
+end
+
+local function insertModelAsset(id)
+	local ok, model = pcall(function() return InsertService:LoadAsset(id) end)
+	if not ok then return false, tostring(model) end
+	local first
+	for _, ch in ipairs(model:GetChildren()) do
+		if ch:IsA("LayerCollector") then ch.Parent = StarterGui
+		elseif ch:IsA("GuiObject") then ch.Parent = targetParent()
+		else ch.Parent = Workspace end
+		first = first or ch
+	end
+	model:Destroy()
+	if first then pcall(function() Selection:Set({first}) end) end
+	return true
+end
+
+local function collect(roots)
+	local l = {}
+	for _, r in ipairs(roots) do
+		l[#l+1] = r
+		for _, d in ipairs(r:GetDescendants()) do l[#l+1] = d end
+	end
+	return l
+end
+
+local function makeResponsive(roots)
+	local n = 0
+	for _, o in ipairs(collect(roots)) do
+		if o:IsA("LayerCollector") then
+			pcall(function() o.ScreenInsets = Enum.ScreenInsets.DeviceSafeInsets end)
+			if o:IsA("ScreenGui") then o.ZIndexBehavior = Enum.ZIndexBehavior.Sibling end
+		elseif o:IsA("GuiObject") then
+			local par = o.Parent
+			local ps = Vector2.zero
+			if par and (par:IsA("GuiObject") or par:IsA("LayerCollector")) then ps = par.AbsoluteSize end
+			if ps.X > 0 and ps.Y > 0 then
+				local hasLayout = par:FindFirstChildWhichIsA("UIGridLayout") ~= nil or par:FindFirstChildWhichIsA("UIListLayout") ~= nil
+				local s, p = o.Size, o.Position
+				if s.X.Offset ~= 0 or s.Y.Offset ~= 0 then
+					o.Size = UDim2.fromScale(s.X.Scale + s.X.Offset/ps.X, s.Y.Scale + s.Y.Offset/ps.Y); n += 1
+				end
+				if not hasLayout and (p.X.Offset ~= 0 or p.Y.Offset ~= 0) then
+					o.Position = UDim2.fromScale(p.X.Scale + p.X.Offset/ps.X, p.Y.Scale + p.Y.Offset/ps.Y)
+				end
+			end
+			if (o:IsA("TextLabel") or o:IsA("TextButton") or o:IsA("TextBox")) and o.TextScaled and not o:FindFirstChildWhichIsA("UITextSizeConstraint") then
+				mk("UITextSizeConstraint", {MaxTextSize=40, MinTextSize=8}, o); n += 1
+			end
+			if (o:IsA("ImageLabel") or o:IsA("ImageButton")) and not o:FindFirstChildWhichIsA("UIAspectRatioConstraint") and o.AbsoluteSize.X > 0 and o.AbsoluteSize.Y > 0 then
+				mk("UIAspectRatioConstraint", {AspectRatio=o.AbsoluteSize.X/o.AbsoluteSize.Y}, o); n += 1
+			end
+		end
+	end
+	return n
+end
+
+local function lint(roots)
+	local offset, textNo, imgNo, outside, total = 0,0,0,0,0
+	local gs = {}
+	for _, o in ipairs(collect(roots)) do
+		if o:IsA("LayerCollector") then gs[#gs+1] = o
+		elseif o:IsA("GuiObject") then
+			total += 1
+			local s = o.Size
+			if s.X.Offset ~= 0 or s.Y.Offset ~= 0 then offset += 1 end
+			if (o:IsA("TextLabel") or o:IsA("TextButton") or o:IsA("TextBox")) and o.TextScaled and not o:FindFirstChildWhichIsA("UITextSizeConstraint") then textNo += 1 end
+			if (o:IsA("ImageLabel") or o:IsA("ImageButton")) and not o:FindFirstChildWhichIsA("UIAspectRatioConstraint") then imgNo += 1 end
+			local par = o.Parent
+			if par and par:IsA("GuiObject") and not par:IsA("ScrollingFrame") and not par:FindFirstChildWhichIsA("UIListLayout") and not par:FindFirstChildWhichIsA("UIGridLayout") then
+				local pa, ps, oa, os = par.AbsolutePosition, par.AbsoluteSize, o.AbsolutePosition, o.AbsoluteSize
+				if oa.X < pa.X-2 or oa.Y < pa.Y-2 or oa.X+os.X > pa.X+ps.X+2 or oa.Y+os.Y > pa.Y+ps.Y+2 then outside += 1 end
+			end
+		end
+	end
+	local function line(bad, okMsg, badMsg) return (bad > 0 and "⚠ "..badMsg:format(bad) or "✔ "..okMsg) end
+	local out = {
+		"Total elemen: "..total,
+		line(offset, "Semua ukuran pakai Scale", "%d elemen pakai Offset"),
+		line(textNo, "Teks scaled punya batas ukuran", "%d teks scaled tanpa UITextSizeConstraint"),
+		line(imgNo, "Gambar punya aspect ratio", "%d gambar tanpa UIAspectRatioConstraint"),
+		line(outside, "Tidak ada elemen keluar dari induknya", "%d elemen keluar batas induknya"),
+		"Tips: tes di emulator HP/tablet di Studio (Test > Device).",
+	}
+	return table.concat(out, "\n")
+end
+
+local ADD = {
+	{"+ List Vertikal",   function(o) mk("UIListLayout", {SortOrder=Enum.SortOrder.LayoutOrder, Padding=UDim.new(0.02,0)}, o) end},
+	{"+ List Horizontal", function(o) mk("UIListLayout", {FillDirection=Enum.FillDirection.Horizontal, SortOrder=Enum.SortOrder.LayoutOrder, Padding=UDim.new(0.02,0)}, o) end},
+	{"+ Grid",            function(o) mk("UIGridLayout", {CellSize=S(0.3,0.3), CellPadding=S(0.02,0.02), SortOrder=Enum.SortOrder.LayoutOrder}, o) end},
+	{"+ Padding",         function(o) mk("UIPadding", {PaddingTop=UDim.new(0.03,0), PaddingBottom=UDim.new(0.03,0), PaddingLeft=UDim.new(0.03,0), PaddingRight=UDim.new(0.03,0)}, o) end},
+	{"+ Corner",          function(o) mk("UICorner", {CornerRadius=UDim.new(0,T.radius)}, o) end},
+	{"+ Stroke",          function(o) mk("UIStroke", {Color=T.stroke, Thickness=T.thick, ApplyStrokeMode=Enum.ApplyStrokeMode.Border}, o) end},
+	{"+ Gradient",        function(o) mk("UIGradient", {Color=ColorSequence.new(T.accent, T.accent2)}, o) end},
+	{"+ Rasio 1:1",       function(o) mk("UIAspectRatioConstraint", {AspectRatio=1}, o) end},
+	{"+ Batas Ukuran",    function(o) mk("UISizeConstraint", {MinSize=Vector2.new(120,60), MaxSize=Vector2.new(900,700)}, o) end},
+	{"+ UIScale",         function(o) mk("UIScale", {}, o) end},
+	{"+ Batas Teks",      function(o) mk("UITextSizeConstraint", {MinTextSize=8, MaxTextSize=40}, o) end},
+}
+
+local UI = {
+	bg=C(18,19,28), panel=C(28,30,44), panel2=C(42,45,66),
+	accent=C(124,92,255), accent2=C(0,200,255),
+	text=C(240,242,255), sub=C(150,155,185),
+	good=C(70,210,130), bad=C(240,90,100),
+}
+
+local oldGui = CoreGui:FindFirstChild("FlyHubPluginUI") or (LP:FindFirstChild("PlayerGui") and LP.PlayerGui:FindFirstChild("FlyHubPluginUI"))
+if oldGui then oldGui:Destroy() end
+
+local host = mk("ScreenGui", {
+	Name = "FlyHubPluginUI",
+	ResetOnSpawn = false,
+	IgnoreGuiInset = true,
+	ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+	DisplayOrder = 999,
+}, (gethui and gethui()) or CoreGui)
+getgenv().FlyHubUI = host
+
+local order = {}
+local function ord(p) order[p] = (order[p] or 0) + 1; return order[p] end
+
+local mainPanel = mk("Frame", {Size=UDim2.fromOffset(430, 640), Position=UDim2.new(1, -450, 0, 60),
+	BackgroundColor3=UI.bg, BorderSizePixel=0, Active=true}, host)
+mk("UICorner", {CornerRadius=UDim.new(0,16)}, mainPanel)
+mk("UIStroke", {Color=UI.accent, Thickness=1.5, Transparency=0.4}, mainPanel)
+mk("UIScale", {Name="PanelScale"}, mainPanel)
+
+local header = mk("Frame", {Size=UDim2.new(1,0,0,56), BackgroundColor3=UI.panel, BorderSizePixel=0}, mainPanel)
+mk("UICorner", {CornerRadius=UDim.new(0,16)}, header)
+mk("Frame", {Size=UDim2.new(1,0,0,16), Position=UDim2.new(0,0,1,-16), BackgroundColor3=UI.panel, BorderSizePixel=0}, header)
+mk("UIGradient", {Color=ColorSequence.new(UI.accent, UI.accent2), Transparency=NumberSequence.new(0.55)}, header)
+
+mk("TextLabel", {Size=UDim2.new(1,-28,0,26), Position=UDim2.fromOffset(14,6), BackgroundTransparency=1,
+	Text="⚡ FLYHUB PLUGINUI", Font=Enum.Font.GothamBlack, TextSize=20, TextColor3=WHITE, TextXAlignment=Enum.TextXAlignment.Left}, header)
+mk("TextLabel", {Size=UDim2.new(1,-28,0,16), Position=UDim2.fromOffset(14,32), BackgroundTransparency=1,
+	Text="UI Builder • 16 Template • 8 Tema • Partikel • Wanta Studio", Font=Enum.Font.Gotham, TextSize=10,
+	TextColor3=UI.text, TextXAlignment=Enum.TextXAlignment.Left}, header)
+
+local function hdrBtn(txt, xOff, color)
+	local b = mk("TextButton", {Size=UDim2.fromOffset(24, 24), Position=UDim2.new(1, xOff, 0, 16),
+		BackgroundColor3=color, BorderSizePixel=0, Text=txt, Font=Enum.Font.GothamBold, TextSize=14,
+		TextColor3=WHITE, AutoButtonColor=false}, header)
+	mk("UICorner", {CornerRadius=UDim.new(0,6)}, b)
+	return b
+end
+local closeBtn = hdrBtn("✕", -30, UI.bad)
+local minBtn = hdrBtn("–", -60, UI.panel2)
+
+local tabBar = mk("ScrollingFrame", {Position=UDim2.fromOffset(0, 56), Size=UDim2.new(1, 0, 0, 38),
+	BackgroundColor3=UI.panel, BorderSizePixel=0, CanvasSize=UDim2.new(), AutomaticCanvasSize=Enum.AutomaticSize.X,
+	ScrollingDirection=Enum.ScrollingDirection.X, ScrollBarThickness=0}, mainPanel)
+mk("UIListLayout", {FillDirection=Enum.FillDirection.Horizontal, Padding=UDim.new(0,4),
+	VerticalAlignment=Enum.VerticalAlignment.Center, SortOrder=Enum.SortOrder.LayoutOrder}, tabBar)
+mk("UIPadding", {PaddingLeft=UDim.new(0,8), PaddingRight=UDim.new(0,8)}, tabBar)
+
+local pageHost = mk("Frame", {Position=UDim2.fromOffset(0,94), Size=UDim2.new(1,0,1,-118), BackgroundTransparency=1}, mainPanel)
+local statusBar = mk("Frame", {Position=UDim2.new(0,0,1,-24), Size=UDim2.new(1,0,0,24), BackgroundColor3=UI.panel, BorderSizePixel=0}, mainPanel)
+statusLabel = mk("TextLabel", {Size=UDim2.new(1,-16,1,0), Position=UDim2.fromOffset(8,0), BackgroundTransparency=1,
+	Text="Siap. Pilih template atau elemen.", Font=Enum.Font.GothamMedium, TextSize=11,
+	TextColor3=UI.good, TextXAlignment=Enum.TextXAlignment.Left, TextTruncate=Enum.TextTruncate.AtEnd}, statusBar)
+
+-- Drag
+do
+	local dragging, dragStart, startPos
+	header.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			dragging = true; dragStart = input.Position; startPos = mainPanel.Position
+			input.Changed:Connect(function()
+				if input.UserInputState == Enum.UserInputState.End then dragging = false end
+			end)
+		end
+	end)
+	UserInputService.InputChanged:Connect(function(input)
+		if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+			local delta = input.Position - dragStart
+			mainPanel.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+		end
+	end)
+end
+
+-- Pages & tabs
+local pages, tabButtons = {}, {}
+local function newPage(name)
+	local sf = mk("ScrollingFrame", {Name=name, Size=UDim2.fromScale(1,1), BackgroundTransparency=1, BorderSizePixel=0,
+		ScrollBarThickness=5, ScrollBarImageColor3=UI.accent, CanvasSize=UDim2.new(),
+		AutomaticCanvasSize=Enum.AutomaticSize.Y, Visible=false}, pageHost)
+	mk("UIListLayout", {Padding=UDim.new(0,6), SortOrder=Enum.SortOrder.LayoutOrder}, sf)
+	mk("UIPadding", {PaddingLeft=UDim.new(0,10), PaddingRight=UDim.new(0,14), PaddingTop=UDim.new(0,8), PaddingBottom=UDim.new(0,12)}, sf)
+	pages[name] = sf
+	return sf
+end
+local function showPage(name)
+	for n,p in pairs(pages) do p.Visible = (n == name) end
+	for n,b in pairs(tabButtons) do b.BackgroundColor3 = (n == name) and UI.accent or UI.panel2 end
+end
+local function addTab(name, label)
+	local b = mk("TextButton", {Size=UDim2.new(0,0,0,28), AutomaticSize=Enum.AutomaticSize.X, BackgroundColor3=UI.panel2,
+		BorderSizePixel=0, Text=label, TextColor3=UI.text, Font=Enum.Font.GothamMedium, TextSize=12,
+		AutoButtonColor=false, LayoutOrder=ord(tabBar)}, tabBar)
+	mk("UICorner", {CornerRadius=UDim.new(0,8)}, b)
+	mk("UIPadding", {PaddingLeft=UDim.new(0,12), PaddingRight=UDim.new(0,12)}, b)
+	b.Activated:Connect(function() showPage(name) end)
+	tabButtons[name] = b
+end
+
+-- Helper ui
+local function uiSection(parent, str)
+	return mk("TextLabel", {Size=UDim2.new(1,0,0,22), BackgroundTransparency=1, Text=string.upper(str),
+		Font=Enum.Font.GothamBold, TextSize=11, TextColor3=UI.accent2,
+		TextXAlignment=Enum.TextXAlignment.Left, LayoutOrder=ord(parent)}, parent)
+end
+local function uiNote(parent, str)
+	return mk("TextLabel", {Size=UDim2.new(1,0,0,0), AutomaticSize=Enum.AutomaticSize.Y, BackgroundTransparency=1,
+		Text=str, Font=Enum.Font.Gotham, TextSize=11, TextColor3=UI.sub, TextWrapped=true,
+		TextXAlignment=Enum.TextXAlignment.Left, LayoutOrder=ord(parent)}, parent)
+end
+local function uiButton(parent, str, cb, color, h)
+	local b = mk("TextButton", {Size=UDim2.new(1,0,0,h or 32), BackgroundColor3=color or UI.panel2,
+		BorderSizePixel=0, AutoButtonColor=true, Text=str, TextColor3=UI.text, Font=Enum.Font.GothamMedium,
+		TextSize=12, TextWrapped=true, LayoutOrder=ord(parent)}, parent)
+	mk("UICorner", {CornerRadius=UDim.new(0,8)}, b)
+	if cb then
+		b.Activated:Connect(function()
+			local ok, err = pcall(cb)
+			if not ok then setStatus("✖ "..tostring(err), true) end
+		end)
+	end
+	return b
+end
+local function uiGrid(parent, cols)
+	local f = mk("Frame", {Size=UDim2.new(1,0,0,0), AutomaticSize=Enum.AutomaticSize.Y,
+		BackgroundTransparency=1, LayoutOrder=ord(parent)}, parent)
+	mk("UIGridLayout", {CellSize=UDim2.new(1/cols,-6,0,34), CellPadding=UDim2.fromOffset(6,6),
+		SortOrder=Enum.SortOrder.LayoutOrder}, f)
+	return f
+end
+local function uiInput(parent, placeholder, default)
+	local tb = mk("TextBox", {Size=UDim2.new(1,0,0,32), BackgroundColor3=UI.panel, BorderSizePixel=0,
+		Text=default or "", PlaceholderText=placeholder, PlaceholderColor3=UI.sub, ClearTextOnFocus=false,
+		TextColor3=UI.text, Font=Enum.Font.Gotham, TextSize=12,
+		 TextXAlignment=Enum.TextXAlignment.Left, LayoutOrder=ord(parent)}, parent)
+	mk("UICorner", {CornerRadius=UDim.new(0,8)}, tb)
+	mk("UIPadding", {PaddingLeft=UDim.new(0,10), PaddingRight=UDim.new(0,10)}, tb)
+	return tb
+end
+local function uiReport(parent)
+	local f = mk("Frame", {Size=UDim2.new(1,0,0,0), AutomaticSize=Enum.AutomaticSize.Y,
+		BackgroundColor3=UI.panel, BorderSizePixel=0, LayoutOrder=ord(parent)}, parent)
+	mk("UICorner", {CornerRadius=UDim.new(0,8)}, f)
+	mk("UIPadding", {PaddingLeft=UDim.new(0,10), PaddingRight=UDim.new(0,10), PaddingTop=UDim.new(0,8), PaddingBottom=UDim.new(0,8)}, f)
+	local l = mk("TextLabel", {Size=UDim2.new(1,0,0,0), AutomaticSize=Enum.AutomaticSize.Y, BackgroundTransparency=1,
+		Text="Laporan akan muncul di sini.", Font=Enum.Font.Code, TextSize=11, TextColor3=UI.sub,
+		TextWrapped=true, TextXAlignment=Enum.TextXAlignment.Left}, f)
+	return function(str) l.Text = str end
+end
+--[[ PART 5 — HALAMAN TEMPLATE/ELEMEN/TEMA/EFEK/ASET/ALAT/SETELAN + INIT ]]
+
+-- TEMPLATE
+do
+	local pg = newPage("Template")
+	uiNote(pg, "Klik template untuk memasukkannya ke StarterGui (atau ke GUI yang dipilih).")
+	local search = uiInput(pg, "🔍 Cari template...", "")
+	local grid = uiGrid(pg, 2)
+	local entries = {}
+	for _, t in ipairs(TEMPLATES) do
+		local b = uiButton(grid, t.name.."\n<font size=\"10\" color=\"#9aa0c0\">"..t.desc.."</font>",
+			function() insert(t.build, t.name) end, UI.panel2, 44)
+		b.RichText = true
+		entries[#entries+1] = {b=b, key=(t.name.." "..t.desc):lower()}
+	end
+	search:GetPropertyChangedSignal("Text"):Connect(function()
+		local q = search.Text:lower()
+		for _, e in ipairs(entries) do e.b.Visible = (q == "") or (e.key:find(q,1,true) ~= nil) end
+	end)
+	uiSection(pg, "Template saya")
+	local saveName = uiInput(pg, "Nama template...", "")
+	local holder = mk("Frame", {Size=UDim2.new(1,0,0,0), AutomaticSize=Enum.AutomaticSize.Y,
+		BackgroundTransparency=1, LayoutOrder=ord(pg)}, pg)
+	mk("UIListLayout", {Padding=UDim.new(0,4), SortOrder=Enum.SortOrder.LayoutOrder}, holder)
+	local refresh
+	refresh = function()
+		for _, c in ipairs(holder:GetChildren()) do if c:IsA("GuiObject") then c:Destroy() end end
+		local saved = getSaved()
+		local names = {}
+		for n in pairs(saved) do names[#names+1] = n end
+		table.sort(names)
+		for _, n in ipairs(names) do
+			local row = mk("Frame", {Size=UDim2.new(1,0,0,30), BackgroundTransparency=1,
+				LayoutOrder=ord(holder)}, holder)
+			local use = mk("TextButton", {Size=UDim2.new(1,-34,1,0), BackgroundColor3=UI.panel2,
+				BorderSizePixel=0, Text="⭐ "..n, TextColor3=UI.text, Font=Enum.Font.GothamMedium, TextSize=12}, row)
+			mk("UICorner", {CornerRadius=UDim.new(0,8)}, use)
+			local del = mk("TextButton", {Size=UDim2.new(0,28,1,0), Position=UDim2.new(1,-28,0,0),
+				BackgroundColor3=UI.bad, BorderSizePixel=0, Text="✕", TextColor3=WHITE,
+				Font=Enum.Font.GothamBold, TextSize=12}, row)
+			mk("UICorner", {CornerRadius=UDim.new(0,8)}, del)
+			use.Activated:Connect(function()
+				local ok, node = pcall(function() return HttpService:JSONDecode(getSaved()[n]) end)
+				if ok then insert(function(parent) return deserialize(node, parent) end, n, true)
+				else setStatus("✖ Template rusak", true) end
+			end)
+			del.Activated:Connect(function()
+				local s = getSaved(); s[n] = nil; setSaved(s); refresh()
+			end)
+		end
+	end
+	uiButton(pg, "💾 Simpan seleksi sebagai template", function()
+		local sel
+		pcall(function() sel = Selection:Get()[1] end)
+		local nm = saveName.Text ~= "" and saveName.Text or (sel and sel.Name or "")
+		if not sel or not (sel:IsA("GuiObject") or sel:IsA("LayerCollector")) or nm == "" then
+			setStatus("✖ Pilih 1 GUI & isi nama", true); return
+		end
+		local ok, json = pcall(function() return HttpService:JSONEncode(serialize(sel)) end)
+		if not ok then setStatus("✖ Gagal menyimpan", true); return end
+		local s = getSaved(); s[nm] = json; setSaved(s); refresh()
+		setStatus("✔ Template '"..nm.."' disimpan", false)
+	end, UI.accent)
+	local box = uiInput(pg, "Tempel JSON template di sini...", "")
+	uiButton(pg, "📤 Export seleksi ke JSON", function()
+		local sel
+		pcall(function() sel = Selection:Get()[1] end)
+		if not sel then setStatus("✖ Pilih GUI dulu", true); return end
+		local ok, json = pcall(function() return HttpService:JSONEncode(serialize(sel)) end)
+		if ok then box.Text = json; setStatus("✔ JSON siap disalin", false)
+		else setStatus("✖ Gagal export", true) end
+	end)
+	uiButton(pg, "📥 Import dari JSON", function()
+		local ok, node = pcall(function() return HttpService:JSONDecode(box.Text) end)
+		if not ok or type(node) ~= "table" or not node.c then setStatus("✖ JSON invalid", true); return end
+		insert(function(parent) return deserialize(node, parent) end, "Import JSON", true)
+	end)
+	refresh()
+end
+
+-- ELEMEN
+do
+	local pg = newPage("Elemen")
+	uiNote(pg, "Tambah komponen satuan ke GUI terpilih.")
+	local grid = uiGrid(pg, 2)
+	for _, e in ipairs(ELEMENTS) do
+		uiButton(grid, e[1], function() insert(e[2], e[1]) end)
+	end
+end
+
+-- TEMA
+do
+	local pg = newPage("Tema")
+	uiNote(pg, "Pilih tema: diterapkan ke semua elemen FlyHub di StarterGui.")
+	local grid = uiGrid(pg, 2)
+	local function applyChosen()
+		local n = 0
+		for _, r in ipairs(rootsOrAll()) do
+			for _, d in ipairs(collect({r})) do
+				if d:GetAttribute("LRole") or d:GetAttribute("LText") or d:GetAttribute("LKind") then n += 1 end
+			end
+			applyTheme(r)
+		end
+		return n
+	end
+	for _, name in ipairs(THEME_ORDER) do
+		local th = THEMES[name]
+		local b = uiButton(grid, name, function()
+			T = th; themeName = name; saveFile("theme.json", name)
+			local ok, res = record("Tema "..name, applyChosen)
+			setStatus(ok and ("✔ Tema "..name.." aktif ("..tostring(res).." elemen)") or ("✖ "..tostring(res)), not ok)
+		end, th.accent, 38)
+		b.TextColor3 = WHITE
+	end
+	uiSection(pg, "Warna aksen kustom")
+	local hex = uiInput(pg, "#5E72FF", "")
+	uiButton(pg, "Terapkan warna aksen", function()
+		local ok, col = pcall(Color3.fromHex, hex.Text)
+		if not ok then setStatus("✖ Hex invalid", true); return end
+		local copy = {}
+		for k,v in pairs(T) do copy[k] = v end
+		copy.accent = col; T = copy
+		local ok2, res = record("Aksen", function()
+			for _, r in ipairs(rootsOrAll()) do applyTheme(r) end
+		end)
+		setStatus(ok2 and "✔ Aksen diterapkan" or ("✖ "..tostring(res)), not ok2)
+	end, UI.accent)
+end
+
+-- EFEK
+do
+	local pg = newPage("Efek")
+	uiNote(pg, "Partikel UI lewat atribut + FlyHubBehavior. Terlihat saat Play.")
+	local kinds = {"Sparkle","Confetti","Coins","Hearts","Stars","Bubbles","Snow","Fire"}
+	local function setAttr(attr, kind)
+		local sel = selectedGuis()
+		if #sel == 0 then setStatus("✖ Pilih elemen dulu", true); return end
+		local ok, res = record("Efek", function()
+			for _, o in ipairs(sel) do
+				if attr == "LFX" and kind and not o:IsA("GuiButton") then error("Efek klik hanya untuk tombol") end
+				o:SetAttribute(attr, kind); ensureBehavior(ownerGui(o))
+			end
+		end)
+		setStatus(ok and ("✔ "..(kind or "Efek dihapus")) or ("✖ "..tostring(res)), not ok)
+	end
+	uiSection(pg, "Partikel UI: klik")
+	local g1 = uiGrid(pg, 4)
+	for _, k in ipairs(kinds) do uiButton(g1, k, function() setAttr("LFX", k) end) end
+	uiSection(pg, "Partikel UI: ambient")
+	local g2 = uiGrid(pg, 4)
+	for _, k in ipairs(kinds) do uiButton(g2, k, function() setAttr("LAmbient", k) end) end
+	uiButton(pg, "🧹 Hapus efek dari elemen terpilih", function()
+		for _, o in ipairs(selectedGuis()) do
+			o:SetAttribute("LFX", nil); o:SetAttribute("LAmbient", nil); o:SetAttribute("LRotate", nil)
+		end
+		setStatus("✔ Efek dihapus", false)
+	end, UI.bad)
+	uiSection(pg, "Animasi")
+	local speed = uiInput(pg, "Kecepatan putar (deg/dt)", "30")
+	uiButton(pg, "🔄 Putar terus (sunburst/ikon)", function()
+		local sel = selectedGuis()
+		if #sel == 0 then setStatus("✖ Pilih elemen dulu", true); return end
+		for _, o in ipairs(sel) do
+			o:SetAttribute("LRotate", tonumber(speed.Text) or 30)
+			ensureBehavior(ownerGui(o))
+		end
+		setStatus("✔ Rotasi dipasang", false)
+	end)
+	uiButton(pg, "✨ Efek hover & klik", function()
+		for _, o in ipairs(selectedGuis()) do
+			if o:IsA("GuiButton") then o:SetAttribute("LHover", true); ensureBehavior(ownerGui(o)) end
+		end
+		setStatus("✔ Hover dipasang", false)
+	end)
+	uiSection(pg, "Partikel 3D (ParticleEmitter)")
+	uiNote(pg, "Pilih Part/Attachment di Workspace (kosong = Part baru di depan kamera).")
+	local g3 = uiGrid(pg, 2)
+	for _, e in ipairs(EMITTERS) do uiButton(g3, e[1], function() attach3D(e[1], e[2]) end) end
+end
+
+-- ASET
+do
+	local pg = newPage("Aset")
+	uiSection(pg, "Upload gambar")
+	uiNote(pg, "Butuh API Key & Creator ID (tab Setelan).")
+	uiButton(pg, "📤 Upload gambar dari komputer", function()
+		local path = nil
+		if promptOpenFile then path = promptOpenFile({title="Pilih gambar", filter="*.png;*.jpg;*.jpeg"}) end
+		if not path or not isfile or not isfile(path) then setStatus("✖ File tidak dipilih", true); return end
+		local bytes = readfile(path)
+		setStatus("⏳ Mengupload...", false)
+		local id, err = uploadImage(bytes, "FlyHub_image")
+		if not id then setStatus("✖ "..tostring(err), true); return end
+		local ok, res = record("Upload", function() addImage(id) end)
+		setStatus(ok and ("✔ Upload OK, ID "..id) or ("✖ "..tostring(res)), not ok)
+	end, UI.accent)
+	local urlBox = uiInput(pg, "URL gambar (png/jpg)", "")
+	uiButton(pg, "🌐 Ambil dari URL lalu upload", function()
+		if urlBox.Text == "" then setStatus("✖ Isi URL dulu", true); return end
+		setStatus("⏳ Mengunduh...", false)
+		local ok, res = pcall(function() return HttpService:RequestAsync({Url=urlBox.Text, Method="GET"}) end)
+		if not ok or not res.Success then setStatus("✖ Gagal unduh", true); return end
+		local id, err = uploadImage(res.Body, urlBox.Text:match("([^/]+)$") or "image")
+		if not id then setStatus("✖ "..tostring(err), true); return end
+		local ok2, r2 = record("Import URL", function() addImage(id) end)
+		setStatus(ok2 and ("✔ Berhasil, ID "..id) or ("✖ "..tostring(r2)), not ok2)
+	end)
+	uiSection(pg, "Pakai ID asset")
+	local idBox = uiInput(pg, "Asset ID (angka)", "")
+	local g = uiGrid(pg, 2)
+	uiButton(g, "Sebagai Gambar", function()
+		local id = tonumber(idBox.Text)
+		if not id then setStatus("✖ ID invalid", true); return end
+		local ok, res = record("Gambar ID", function() addImage(tostring(id)) end)
+		setStatus(ok and "✔ Gambar ditambahkan" or ("✖ "..tostring(res)), not ok)
+	end)
+	uiButton(g, "Sebagai Model", function()
+		local id = tonumber(idBox.Text)
+		if not id then setStatus("✖ ID invalid", true); return end
+		local ok, res = record("Model ID", function() insertModelAsset(id) end)
+		setStatus(ok and "✔ Model dimasukkan" or ("✖ "..tostring(res)), not ok)
+	end)
+
+	uiSection(pg, "Creator Store")
+	local kw = uiInput(pg, "Cari aset: sword, button, icon...", "")
+	local catGrid = uiGrid(pg, 2)
+	local storeCat, storePage = 10, 0
+	local catButtons = {}
+	local function setCat(id)
+		storeCat = id
+		for cid, b in pairs(catButtons) do b.BackgroundColor3 = (cid == id) and UI.accent or UI.panel2 end
+	end
+	catButtons[10] = uiButton(catGrid, "Model / GUI", function() setCat(10) end, UI.accent)
+	catButtons[13] = uiButton(catGrid, "Decal", function() setCat(13) end)
+	local results = mk("Frame", {Size=UDim2.new(1,0,0,0), AutomaticSize=Enum.AutomaticSize.Y,
+		BackgroundTransparency=1, LayoutOrder=ord(pg)}, pg)
+	mk("UIGridLayout", {CellSize=UDim2.new(1/3,-6,0,112), CellPadding=UDim2.fromOffset(6,6),
+		SortOrder=Enum.SortOrder.LayoutOrder}, results)
+	local resultCount = 0
+	local function addResult(id, name, cat)
+		resultCount += 1
+		local cell = mk("Frame", {BackgroundColor3=UI.panel, BorderSizePixel=0, LayoutOrder=resultCount}, results)
+		mk("UICorner", {CornerRadius=UDim.new(0,8)}, cell)
+		local img = mk("ImageButton", {Size=UDim2.new(1,-8,1,-34), Position=UDim2.fromOffset(4,4),
+			BackgroundColor3=UI.panel2, BorderSizePixel=0,
+			Image=("rbxthumb://type=Asset&id=%d&w=150&h=150"):format(id),
+			ScaleType=Enum.ScaleType.Fit}, cell)
+		mk("UICorner", {CornerRadius=UDim.new(0,6)}, img)
+		mk("TextLabel", {Size=UDim2.new(1,-8,0,26), Position=UDim2.new(0,4,1,-28), BackgroundTransparency=1,
+			Text=name, TextColor3=UI.text, Font=Enum.Font.Gotham, TextSize=10,
+			TextWrapped=true, TextTruncate=Enum.TextTruncate.AtEnd}, cell)
+		img.Activated:Connect(function()
+			setStatus("⏳ Memasukkan "..name.."...", false)
+			if cat == 13 then
+				local ok, res = record("Decal Store", function() addImage(tostring(id)) end)
+				setStatus(ok and ("✔ "..name) or ("✖ "..tostring(res)), not ok)
+			else
+				local ok, res = record("Store Model", function() insertModelAsset(id) end)
+				setStatus(ok and ("✔ "..name) or ("✖ "..tostring(res)), not ok)
+			end
+		end)
+	end
+	local function runSearch(reset)
+		if reset then
+			storePage = 0; resultCount = 0
+			for _, c in ipairs(results:GetChildren()) do if c:IsA("GuiObject") then c:Destroy() end end
+		end
+		setStatus("⏳ Mencari...", false)
+		local cat = storeCat
+		local url = ("https://apis.roblox.com/toolbox-service/v1/marketplace/%d?keyword=%s&pageNumber=%d"):format(cat, HttpService:UrlEncode(kw.Text), storePage)
+		local ok, res = pcall(function() return HttpService:RequestAsync({Url=url, Method="GET"}) end)
+		if not ok then setStatus("✖ Aktifkan izin HTTP", true); return end
+		if not res.Success then setStatus("✖ Pencarian gagal (HTTP "..res.StatusCode..")", true); return end
+		local okd, data = pcall(function() return HttpService:JSONDecode(res.Body) end)
+		local ids = {}
+		if okd and type(data.data) == "table" then
+			for _, it in ipairs(data.data) do ids[#ids+1] = it.id end
+		end
+		if #ids == 0 then setStatus("Tidak ada hasil", true); return end
+		local names = {}
+		local ok2, r2 = pcall(function()
+			return HttpService:RequestAsync({Url="https://apis.roblox.com/toolbox-service/v1/items/details?assetIds="..table.concat(ids, "%2C"), Method="GET"})
+		end)
+		if ok2 and r2.Success then
+			local okd2, d2 = pcall(function() return HttpService:JSONDecode(r2.Body) end)
+			if okd2 and type(d2.data) == "table" then
+				for _, it in ipairs(d2.data) do if it.asset then names[it.asset.id] = it.asset.name end end
+			end
+		end
+		for _, id in ipairs(ids) do addResult(id, names[id] or tostring(id), cat) end
+		setStatus("✔ "..#ids.." hasil (hal "..(storePage+1)..")", false)
+	end
+	uiButton(pg, "🔍 Cari di Creator Store", function() runSearch(true) end, UI.accent)
+	uiButton(pg, "⏬ Muat lebih banyak", function() storePage += 1; runSearch(false) end)
+
+	uiSection(pg, "Manajer asset")
+	local report = uiReport(pg)
+	uiButton(pg, "📋 Daftar asset ID yang dipakai", function()
+		local counts, n = {}, 0
+		for _, o in ipairs(collect(rootsOrAll())) do
+			local okI, img = pcall(function() return o.Image end)
+			if okI and type(img) == "string" and img ~= "" then counts[img] = (counts[img] or 0) + 1 end
+		end
+		local lines = {}
+		for id, c in pairs(counts) do lines[#lines+1] = id.."  x"..c; n += 1 end
+		table.sort(lines)
+		report(n == 0 and "Tidak ada gambar dipakai." or table.concat(lines, "\n"))
+		setStatus("✔ "..n.." asset gambar ditemukan", false)
+	end)
+	local fromBox = uiInput(pg, "ID lama", "")
+	local toBox = uiInput(pg, "ID baru", "")
+	uiButton(pg, "🔁 Ganti ID asset massal", function()
+		local a, b = tonumber(fromBox.Text), tonumber(toBox.Text)
+		if not a or not b then setStatus("✖ Isi ID lama & baru", true); return end
+		local n = 0
+		local ok, res = record("Ganti ID", function()
+			for _, o in ipairs(collect(rootsOrAll())) do
+				local okI, img = pcall(function() return o.Image end)
+				if okI and type(img) == "string" and img:find(tostring(a),1,true) then
+					o.Image = "rbxassetid://"..b; n += 1
+				end
+			end
+		end)
+		setStatus(ok and ("✔ "..n.." gambar diganti") or ("✖ "..tostring(res)), not ok)
+	end)
+end
+
+-- ALAT
+do
+	local pg = newPage("Alat")
+	uiSection(pg, "Kompatibel semua device")
+	local report = uiReport(pg)
+	uiButton(pg, "📱 Jadikan responsif", function()
+		local n = 0
+		local ok, res = record("Responsif", function() n = makeResponsive(rootsOrAll()) end)
+		setStatus(ok and ("✔ "..n.." perbaikan responsif") or ("✖ "..tostring(res)), not ok)
+	end, UI.accent)
+	uiButton(pg, "🔎 Cek kompatibilitas (lint)", function()
+		report(lint(rootsOrAll())); setStatus("✔ Laporan dibuat", false)
+	end)
+	uiSection(pg, "Tambah komponen ke elemen terpilih")
+	local grid = uiGrid(pg, 2)
+	for _, a in ipairs(ADD) do
+		uiButton(grid, a[1], function()
+			local sel = selectedGuis()
+			if #sel == 0 then setStatus("✖ Pilih elemen dulu", true); return end
+			local ok, res = record(a[1], function()
+				for _, o in ipairs(sel) do a[2](o) end
+			end)
+			setStatus(ok and ("✔ "..a[1].." ditambahkan") or ("✖ "..tostring(res)), not ok)
+		end)
+	end
+	uiSection(pg, "Jendela di editor")
+	local g2 = uiGrid(pg, 2)
+	uiButton(g2, "👁 Tampilkan semua jendela", function()
+		for _, o in ipairs(collect(rootsOrAll())) do
+			if o:IsA("GuiObject") and o:GetAttribute("LStartHidden") then o.Visible = true end
+		end
+		setStatus("✔ Ditampilkan", false)
+	end)
+	uiButton(g2, "🙈 Sembunyikan jendela", function()
+		for _, o in ipairs(collect(rootsOrAll())) do
+			if o:IsA("GuiObject") and o:GetAttribute("LStartHidden") then o.Visible = false end
+		end
+		setStatus("✔ Disembunyikan", false)
+	end)
+	uiSection(pg, "Skrip perilaku")
+	uiNote(pg, "FlyHubBehavior mengurus buka/tutup jendela, hover, tab, toggle, slider, spin, partikel, loading, toast.")
+	uiButton(pg, "♻ Perbarui skrip perilaku", function()
+		local n = 0
+		for _, o in ipairs(collect(rootsOrAll())) do
+			if o:IsA("ScreenGui") then
+				local ls = o:FindFirstChild("FlyHubBehavior")
+				if ls and ls:IsA("LocalScript") then ls.Source = BEHAVIOR; n += 1 end
+			end
+		end
+		setStatus("✔ "..n.." skrip diperbarui", false)
+	end)
+	uiSection(pg, "Atribut yang bisa kamu pakai")
+	uiNote(pg, "LOpen=NamaJendela • LClose=true • LHover=true • LFX=Sparkle/Confetti/Coins/Hearts/Stars/Bubbles/Snow/Fire • LAmbient=jenis • LRotate=derajat/detik • LTab/LGroup/LPage • LToggle/LState • LSlider/LValue • LSpin=NamaRoda • LToast=detik • LLoading=detik • LStartHidden=true")
+end
+
+-- SETELAN
+do
+	local pg = newPage("Setelan")
+	uiSection(pg, "Upload asset (Open Cloud)")
+	uiNote(pg, "Buat API Key di create.roblox.com > Credentials dengan izin Assets (Read & Write).")
+	local key = uiInput(pg, "API Key", loadFile("apikey.txt", "") or "")
+	key.FocusLost:Connect(function() saveFile("apikey.txt", key.Text); setStatus("✔ API Key disimpan", false) end)
+	local cid = uiInput(pg, "Creator ID (User ID / Group ID)", loadFile("creatorid.txt", "") or "")
+	cid.FocusLost:Connect(function() saveFile("creatorid.txt", cid.Text); setStatus("✔ Creator ID disimpan", false) end)
+	local ctype = loadFile("creatortype.txt", "User") or "User"
+	local tb
+	tb = uiButton(pg, "Tipe creator: "..ctype.." (klik untuk ganti)", function()
+		ctype = (ctype == "User") and "Group" or "User"
+		saveFile("creatortype.txt", ctype)
+		tb.Text = "Tipe creator: "..ctype.." (klik untuk ganti)"
+	end)
+	uiSection(pg, "Izin HTTP")
+	uiNote(pg, "Creator Store, upload, dan import URL pakai HttpService. Executor harus mengizinkan HTTP (biasanya auto-allow).")
+	uiSection(pg, "Tentang")
+	uiNote(pg, "FlyHub PluginUI v2.0 • Wanta Studio\n16 template, 8 tema, partikel UI & 3D, upload & Creator Store, template kustom, cek responsif.")
+end
+
+-- INIT
+addTab("Template", "🧩 Template")
+addTab("Elemen",   "🔧 Elemen")
+addTab("Tema",     "🎨 Tema")
+addTab("Efek",     "✨ Efek")
+addTab("Aset",     "📦 Aset")
+addTab("Alat",     "🛠 Alat")
+addTab("Setelan",  "⚙ Setelan")
+showPage("Template")
+
+-- Close & Minimize
+closeBtn.Activated:Connect(function()
+	getgenv().FlyHubLoaded = false
+	host:Destroy()
+end)
+local minimized = false
+local originalSize = mainPanel.Size
+minBtn.Activated:Connect(function()
+	minimized = not minimized
+	if minimized then
+		mainPanel.Size = UDim2.fromOffset(430, 56)
+		pageHost.Visible = false
+		statusBar.Visible = false
+		tabBar.Visible = false
+	else
+		mainPanel.Size = originalSize
+		pageHost.Visible = true
+		statusBar.Visible = true
+		tabBar.Visible = true
+	end
+end)
+
+setStatus("✔ FlyHub PluginUI siap! Pilih template / elemen.", false)
